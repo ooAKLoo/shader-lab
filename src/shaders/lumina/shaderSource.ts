@@ -69,13 +69,13 @@ export const fragmentShaderSource = `
     float highlightMix = smoothstep(0.2, 0.8, f);
     color = mix(color, highlight, highlightMix);
 
-    vec3 crimson = vec3(0.8, 0.1, 0.2);
-    color = mix(color, crimson, smoothstep(0.0, 1.0, length(r.x) * length(r.y)));
+    vec3 accent = mix(u_color2, u_color3, 0.5) * 1.2;
+    color = mix(color, accent, smoothstep(0.0, 1.0, length(r.x) * length(r.y)));
 
     vec3 oilPalette = palette(
       length(q) + f,
-      vec3(0.5, 0.5, 0.5),
-      vec3(0.5, 0.5, 0.5),
+      (u_color1 + u_color2) * 0.5,
+      (u_color3 - u_color1) * 0.5,
       vec3(1.0, 1.0, 1.0),
       vec3(0.0, 0.33, 0.67)
     );

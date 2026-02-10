@@ -8,10 +8,11 @@ interface Props {
 
 const COLOR_PRESETS = [
   { id: "ocean", label: "Ocean", accent1: "#ff1a80", accent2: "#ff801a", bg1: "#1a80ff", bg2: "#1a8099" },
-  { id: "abyss", label: "Abyss", accent1: "#00ffaa", accent2: "#00aaff", bg1: "#0a0033", bg2: "#001a33" },
-  { id: "ember", label: "Ember", accent1: "#ff4400", accent2: "#ffcc00", bg1: "#1a0022", bg2: "#331a00" },
-  { id: "arctic", label: "Arctic", accent1: "#66ccff", accent2: "#eeffff", bg1: "#001133", bg2: "#002244" },
-  { id: "toxic", label: "Toxic", accent1: "#88ff00", accent2: "#ff00aa", bg1: "#001a00", bg2: "#0a0033" },
+  { id: "abyss", label: "Abyss", accent1: "#00ffaa", accent2: "#00aaff", bg1: "#1a2d80", bg2: "#0a3366" },
+  { id: "ember", label: "Ember", accent1: "#ff4400", accent2: "#ffcc00", bg1: "#801a28", bg2: "#805020" },
+  { id: "arctic", label: "Arctic", accent1: "#66ccff", accent2: "#eeffff", bg1: "#103d80", bg2: "#1a5570" },
+  { id: "toxic", label: "Toxic", accent1: "#88ff00", accent2: "#ff00aa", bg1: "#1a5530", bg2: "#2a1a66" },
+  { id: "violet", label: "Violet", accent1: "#bb99ff", accent2: "#ff99cc", bg1: "#2a1566", bg2: "#1a2070" },
 ];
 
 const Slider: React.FC<{
