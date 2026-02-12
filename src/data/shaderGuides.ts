@@ -1,4 +1,4 @@
-import type { ShaderType } from "../components/Sidebar";
+import type { ShaderType } from "./shaderTypes";
 
 export interface PipelineStep {
   step: string;

@@ -1,0 +1,39 @@
+<!-- only needed to hold the filter,
+     functionally the same as a style element,
+     so hide it from screen readers & zero its dimensions -->
+<svg aria-hidden='true' width='0' height='0'>
+  <!-- reduce filter area to exact input dimensions -->
+  <filter id='extract' x='0' y='0' width='1' height='1'>
+    <feComponentTransfer result='shape'>
+      <feFuncA type='table' tableValues='10 0'/>
+    </feComponentTransfer>
+  </filter>
+</svg>
+
+<!-- plain solid backdrop -->
+<section class='video-text-container'>
+  <video src='https://assets.codepen.io/2017/snowy_mountain.mp4' autoplay loop muted playsinline aria-hidden='true'></video>
+  <div class='text-box text-content'>video text</div>
+</section>
+
+<!-- simple image (opaque .jpg/ .png or CSS gradient) backdrop -->
+<section class='video-text-container'>
+  <video src='https://assets.codepen.io/2017/snowy_mountain.mp4' autoplay loop muted playsinline aria-hidden='true'></video>
+  <div class='text-box text-content back-img'>video text</div>
+</section>
+
+<!-- multi-layer backdrop, layers may be blended -->
+<section class='video-text-container'>
+  <video src='https://assets.codepen.io/2017/snowy_mountain.mp4' autoplay loop muted playsinline aria-hidden='true'></video>
+  <div class='text-box text-content back-img back-img--multi'>video text</div>
+</section>
+
+<!-- complex backdrop (may be an interactive canvas, another video) -->
+<section class='video-text-container'>
+  <video src='https://assets.codepen.io/2017/snowy_mountain.mp4' autoplay loop muted playsinline aria-hidden='true'></video>
+  <div class='text-box'>
+    <div class='text-context'> &#127876;
+    </div>
+    <div class='text-content'>video text</div>
+  </div>
+</section>

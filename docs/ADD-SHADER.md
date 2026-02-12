@@ -292,19 +292,19 @@ export const {Name}Controls: React.FC<Props> = ({ params, onChange }) => {
 
 ---
 
-## 步骤 2：注册到 Sidebar（`src/components/Sidebar.tsx`）
+## 步骤 2：注册到类型文件（`src/data/shaderTypes.ts`）
 
 ### 2.1 扩展 ShaderType 联合类型
 
 ```diff
-- export type ShaderType = "vortex" | "lumina";
-+ export type ShaderType = "vortex" | "lumina" | "{name}";
+- export type ShaderType = "vortex" | "lumina" | ...;
++ export type ShaderType = "vortex" | "lumina" | ... | "{name}";
 ```
 
 ### 2.2 添加 SHADERS 条目
 
 ```diff
-  const SHADERS: ShaderEntry[] = [
+  export const SHADERS: ShaderEntry[] = [
     { id: "vortex", name: "Vortex Portal", description: "Spiral energy field", technique: "FBM + Polar Warp" },
     { id: "lumina", name: "Lumina Flow", description: "Domain warping fluid", technique: "Multi-layer FBM" },
 +   { id: "{name}", name: "{Display Name}", description: "{一句话描述}", technique: "{核心技术}" },
@@ -419,7 +419,7 @@ export const shaderGuides: Record<ShaderType, ShaderGuide> = {
 □ src/shaders/{name}/shaderSource.ts     — GLSL 源码，uniform 声明齐全
 □ src/shaders/{name}/{Name}Canvas.tsx    — 参数接口 + WebGL 渲染组件
 □ src/shaders/{name}/{Name}Controls.tsx  — 控制面板（遵循设计规范）
-□ src/components/Sidebar.tsx             — ShaderType 联合类型 + SHADERS 条目
+□ src/data/shaderTypes.ts               — ShaderType 联合类型 + SHADERS 条目
 □ src/App.tsx                            — import + 默认值 + meta + state + 渲染分支
 □ src/data/shaderGuides.ts              — 技术解读内容（5步pipeline + 概念 + 应用）
 □ 颜色预设用 w-6 h-6 flex 小方块，不用 grid

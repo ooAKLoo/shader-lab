@@ -135,41 +135,51 @@
 ## 布局结构
 
 ```
-┌────────────────────────────────────────────────────┐
-│ bg-[#f8f8f8] 页面底色, h-screen flex p-3 gap-3    │
-│ ┌──────────┬──────────────────────────────────────┐│
-│ │ Sidebar  │  Main Panel (white rounded-3xl)      ││
-│ │ 200px    │  ┌─ Header (py-3, 标题 + ? 按钮) ──┐││
-│ │ bg 透明  │  │                                   │││
-│ │          │  ├─ Content (flex-1 flex gap-4) ─────┤││
-│ │          │  │ ┌────────────┐ ┌────────────────┐│││
-│ │          │  │ │ Canvas     │ │ Controls       ││││
-│ │          │  │ │ flex-[3]   │ │ flex-[2]       ││││
-│ │          │  │ │ neutral-100│ │ neutral-100    ││││
-│ │          │  │ │ rounded-2xl│ │ rounded-2xl    ││││
-│ │          │  │ │            │ │ ┌white cards──┐││││
-│ │          │  │ │ <Canvas/>  │ │ │ Parameters  │││││
-│ │          │  │ │            │ │ │ Presets     │││││
-│ │          │  │ │            │ │ └─────────────┘││││
-│ │          │  │ └────────────┘ └────────────────┘│││
-│ │          │  └───────────────────────────────────┘││
-│ └──────────┴──────────────────────────────────────┘│
-└────────────────────────────────────────────────────┘
+┌────────────────────────────────────────────────────────┐
+│ bg-[#f8f8f8] 页面底色, h-screen flex p-3 gap-3        │
+│ ┌──────┬──────────────────────────────────────────────┐│
+│ │ Rail │  Main Panel (white rounded-3xl)              ││
+│ │ 64px │  ┌─ Header (py-3, 标题 + 技术标签 + ?) ────┐││
+│ │      │  │                                           │││
+│ │ Logo │  ├─ ShaderStrip (水平滚动 pill 选择器) ─────┤││
+│ │      │  │                                           │││
+│ │[icon]│  ├─ Content (flex-1 flex gap-4) ─────────────┤││
+│ │Shade │  │ ┌────────────────┐ ┌────────────────────┐│││
+│ │      │  │ │ Canvas         │ │ Controls           ││││
+│ │[icon]│  │ │ flex-[3]       │ │ flex-[2]           ││││
+│ │Play  │  │ │ neutral-100    │ │ neutral-100        ││││
+│ │      │  │ │ rounded-2xl    │ │ rounded-2xl        ││││
+│ │      │  │ │                │ │ ┌white cards──────┐││││
+│ │      │  │ │ <Canvas/>      │ │ │ Parameters      │││││
+│ │      │  │ │                │ │ │ Presets         │││││
+│ │[info]│  │ │                │ │ └────────────────┘││││
+│ │      │  │ └────────────────┘ └────────────────────┘│││
+│ │      │  └───────────────────────────────────────────┘││
+│ └──────┴──────────────────────────────────────────────┘│
+└────────────────────────────────────────────────────────┘
 ```
 
-## Sidebar 滚动规则
+## NavRail 结构
 
-Sidebar 为固定高度（`h-full`）的 flex 列布局，内部分三个区域：
+NavRail 为 64px 宽的垂直图标导航栏，内部分三个区域：
 
 | 区域 | 行为 | 关键 class |
 |------|------|-----------|
-| Logo + 标签 | **固定不滚动** | 默认（flex-shrink-0） |
-| Shader 列表 | **独立滚动** | `flex-1 min-h-0 overflow-y-auto` |
-| Footer Info | **固定不滚动** | `mt-auto`（推到底部） |
+| Logo | **固定顶部** | `w-10 h-10 rounded-xl bg-neutral-800` |
+| 分类按钮 | **垂直排列** | `w-10 h-10 rounded-xl` + 激活/非激活态 |
+| Info 指示 | **固定底部** | `mt-auto` |
 
-- Shader 列表通过 `flex-1 min-h-0 overflow-y-auto` 实现独立滚动，不影响右侧主面板
-- `min-h-0` 是关键——flex 子项默认 `min-height: auto` 会撑开父容器，必须显式设为 0 才能启用 overflow 截断
-- 右侧 Main Panel 始终固定在视口内，不跟随 Sidebar 滚动
+- 激活态：`bg-neutral-800 text-white rounded-xl`
+- 非激活态：`text-neutral-400 hover:bg-neutral-100`
+- 标签：`text-[8px] uppercase tracking-wide`
+
+## ShaderStrip 滚动规则
+
+ShaderStrip 为水平滚动 pill 选择器：
+
+- 容器：`flex gap-1.5 overflow-x-auto scrollbar-hide`
+- 自动滚动到激活 pill（`scrollIntoView`）
+- 每个 pill：`px-2.5 py-1.5 rounded-lg text-[10px] font-medium whitespace-nowrap`
 
 ## 禁止事项
 
