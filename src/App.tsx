@@ -1,10 +1,11 @@
-import React, { useState } from "react";
+import React, { useState, useRef } from "react";
 import { NavRail } from "./components/NavRail";
 import { ShaderStrip } from "./components/ShaderStrip";
 import { TechModal } from "./components/TechModal";
 import { shaderGuides } from "./data/shaderGuides";
 import { demoGuides } from "./data/demoGuides";
 import { playgroundGuides } from "./data/playgroundGuides";
+import { particleGuides } from "./particle/particleGuides";
 import type { ShaderType, Category } from "./data/shaderTypes";
 import { VortexCanvas, type VortexParams } from "./shaders/vortex/VortexCanvas";
 import { VortexControls } from "./shaders/vortex/VortexControls";
@@ -70,6 +71,45 @@ import { SquaresCanvas } from "./playground/squares/SquaresCanvas";
 import { SquaresControls } from "./playground/squares/SquaresControls";
 import type { SquaresParams } from "./playground/squares/types";
 import { DEFAULT_CONFIG as DEFAULT_SQUARES } from "./playground/squares/constants";
+import { FissionCanvas } from "./particle/fission/FissionCanvas";
+import { FissionControls } from "./particle/fission/FissionControls";
+import type { FissionParams } from "./particle/fission/types";
+import { DEFAULT_CONFIG as DEFAULT_FISSION } from "./particle/fission/constants";
+import { MetaballCanvas } from "./particle/metaball/MetaballCanvas";
+import { MetaballControls } from "./particle/metaball/MetaballControls";
+import type { MetaballParams } from "./particle/metaball/types";
+import { DEFAULT_CONFIG as DEFAULT_METABALL } from "./particle/metaball/constants";
+import { SdfmorphCanvas } from "./particle/sdfmorph/SdfmorphCanvas";
+import { SdfmorphControls } from "./particle/sdfmorph/SdfmorphControls";
+import type { SdfmorphParams } from "./particle/sdfmorph/types";
+import { DEFAULT_CONFIG as DEFAULT_SDFMORPH } from "./particle/sdfmorph/constants";
+import { LettermorphCanvas } from "./particle/lettermorph/LettermorphCanvas";
+import { LettermorphControls } from "./particle/lettermorph/LettermorphControls";
+import type { LettermorphParams } from "./particle/lettermorph/types";
+import { DEFAULT_CONFIG as DEFAULT_LETTERMORPH } from "./particle/lettermorph/constants";
+import { LiquidfillCanvas } from "./particle/liquidfill/LiquidfillCanvas";
+import { LiquidfillControls } from "./particle/liquidfill/LiquidfillControls";
+import type { LiquidfillParams } from "./particle/liquidfill/types";
+import { DEFAULT_CONFIG as DEFAULT_LIQUIDFILL } from "./particle/liquidfill/constants";
+import { GooeyfxCanvas } from "./particle/gooeyfx/GooeyfxCanvas";
+import { GooeyfxControls } from "./particle/gooeyfx/GooeyfxControls";
+import type { GooeyfxParams } from "./particle/gooeyfx/types";
+import { DEFAULT_CONFIG as DEFAULT_GOOEYFX } from "./particle/gooeyfx/constants";
+import { EyetrackCanvas } from "./particle/eyetrack/EyetrackCanvas";
+import { EyetrackControls } from "./particle/eyetrack/EyetrackControls";
+import type { EyetrackParams } from "./particle/eyetrack/types";
+import { DEFAULT_CONFIG as DEFAULT_EYETRACK } from "./particle/eyetrack/constants";
+import { LiquidtransCanvas } from "./particle/liquidtrans/LiquidtransCanvas";
+import { LiquidtransControls } from "./particle/liquidtrans/LiquidtransControls";
+import type { LiquidtransParams } from "./particle/liquidtrans/types";
+import { DEFAULT_CONFIG as DEFAULT_LIQUIDTRANS } from "./particle/liquidtrans/constants";
+import { DotgridCanvas } from "./particle/dotgrid/DotgridCanvas";
+import { DotgridControls } from "./particle/dotgrid/DotgridControls";
+import type { DotgridParams } from "./particle/dotgrid/types";
+import { DEFAULT_CONFIG as DEFAULT_DOTGRID } from "./particle/dotgrid/constants";
+import type { ParticleType } from "./particle/particleTypes";
+import { PARTICLES } from "./particle/particleTypes";
+import { ParticleStrip } from "./components/ParticleStrip";
 import type { PlaygroundType } from "./data/playgroundTypes";
 
 const DEFAULT_VORTEX: VortexParams = {
@@ -289,6 +329,17 @@ const App: React.FC = () => {
   const [flipParams, setFlipParams] = useState<FlipParams>(DEFAULT_FLIP);
   const [framersParams, setFramersParams] = useState<FramersParams>(DEFAULT_FRAMERS);
   const [squaresParams, setSquaresParams] = useState<SquaresParams>(DEFAULT_SQUARES);
+  const [activeParticle, setActiveParticle] = useState<ParticleType>("fission");
+  const [fissionParams, setFissionParams] = useState<FissionParams>(DEFAULT_FISSION);
+  const [metaballParams, setMetaballParams] = useState<MetaballParams>(DEFAULT_METABALL);
+  const [sdfmorphParams, setSdfmorphParams] = useState<SdfmorphParams>(DEFAULT_SDFMORPH);
+  const [lettermorphParams, setLettermorphParams] = useState<LettermorphParams>(DEFAULT_LETTERMORPH);
+  const [liquidfillParams, setLiquidfillParams] = useState<LiquidfillParams>(DEFAULT_LIQUIDFILL);
+  const [gooeyfxParams, setGooeyfxParams] = useState<GooeyfxParams>(DEFAULT_GOOEYFX);
+  const [eyetrackParams, setEyetrackParams] = useState<EyetrackParams>(DEFAULT_EYETRACK);
+  const [liquidtransParams, setLiquidtransParams] = useState<LiquidtransParams>(DEFAULT_LIQUIDTRANS);
+  const [dotgridParams, setDotgridParams] = useState<DotgridParams>(DEFAULT_DOTGRID);
+  const dotgridAnimRef = useRef({ phase: 0, progress: 0 });
   const [showTechModal, setShowTechModal] = useState(false);
 
   const meta = SHADER_META[activeShader];
@@ -509,7 +560,7 @@ const App: React.FC = () => {
             {/* Demo Strip */}
             <DemoStrip active={activeDemo} onSelect={setActiveDemo} />
           </>
-        ) : (
+        ) : activeCategory === "playground" ? (
           /* Playground */
           <>
             {/* Header */}
@@ -603,6 +654,109 @@ const App: React.FC = () => {
             {/* Playground Strip */}
             <PlaygroundStrip active={activePlayground} onSelect={setActivePlayground} />
           </>
+        ) : (
+          /* Particle */
+          <>
+            {/* Header */}
+            <div className="flex items-center gap-3 px-5 py-3 flex-shrink-0">
+              <span className="text-[13px] font-medium text-neutral-700">
+                {activeParticle === "fission" ? "Fission"
+                  : activeParticle === "metaball" ? "Metaball"
+                  : activeParticle === "sdfmorph" ? "SDF Morph"
+                  : activeParticle === "lettermorph" ? "Letter Morph"
+                  : activeParticle === "liquidfill" ? "Liquid Fill"
+                  : activeParticle === "gooeyfx" ? "Gooey FX"
+                  : activeParticle === "eyetrack" ? "Eye Track"
+                  : activeParticle === "liquidtrans" ? "Liquid Trans"
+                  : "Dot Grid"}
+              </span>
+              <span className="text-[9px] px-1.5 py-0.5 rounded bg-neutral-100 text-neutral-400">
+                {activeParticle === "fission" ? "Canvas 2D + Additive Glow + Lerp Easing"
+                  : activeParticle === "metaball" ? "CSS Gooey Filter (blur + contrast) + Lerp Easing"
+                  : activeParticle === "sdfmorph" ? "WebGL SDF Morphing + Liquid Fusion + Easing Curves"
+                  : activeParticle === "lettermorph" ? "WebGL 26-Letter SDF Morphing + Smooth Min Fusion"
+                  : activeParticle === "liquidfill" ? "CSS Gooey Filter + SVG Path Morphing + Splash Particles"
+                  : activeParticle === "gooeyfx" ? "SVG Gooey Filter (feGaussianBlur + feColorMatrix) Spectrum Bars"
+                  : activeParticle === "eyetrack" ? "CSS Cursor Tracking + Lerp Smoothing + Blink Animation"
+                  : activeParticle === "liquidtrans" ? "Simplex Noise + Double Domain Warping + Smoothstep Banding"
+                  : "Canvas 2D Dot-to-Grid Morphing + Staggered Easing"}
+              </span>
+              <div className="flex-1" />
+
+              {/* Tech Guide button */}
+              <button
+                onClick={() => setShowTechModal(true)}
+                className="w-6 h-6 rounded-lg bg-neutral-100 hover:bg-neutral-200 flex items-center justify-center text-neutral-400 hover:text-neutral-600 transition-colors"
+              >
+                <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
+                  <circle cx="6" cy="6" r="5" stroke="currentColor" strokeWidth="1.2" />
+                  <path
+                    d="M4.5 4.5C4.5 3.67 5.17 3 6 3C6.83 3 7.5 3.67 7.5 4.5C7.5 5.17 7 5.5 6.5 5.75C6.25 5.88 6 6.08 6 6.4V6.75"
+                    stroke="currentColor"
+                    strokeWidth="1.1"
+                    strokeLinecap="round"
+                  />
+                  <circle cx="6" cy="8.25" r="0.5" fill="currentColor" />
+                </svg>
+              </button>
+            </div>
+
+            {/* Content: Preview + Controls */}
+            <div className="flex-1 flex min-h-0 px-5 gap-4">
+              {/* Left: Canvas (60%) */}
+              <div className="flex-[3] flex flex-col min-h-0">
+                <div className="bg-neutral-950 rounded-2xl flex-1 overflow-hidden">
+                  {activeParticle === "fission" && <FissionCanvas params={fissionParams} />}
+                  {activeParticle === "metaball" && <MetaballCanvas params={metaballParams} />}
+                  {activeParticle === "sdfmorph" && <SdfmorphCanvas params={sdfmorphParams} />}
+                  {activeParticle === "lettermorph" && <LettermorphCanvas params={lettermorphParams} />}
+                  {activeParticle === "liquidfill" && <LiquidfillCanvas params={liquidfillParams} />}
+                  {activeParticle === "gooeyfx" && <GooeyfxCanvas params={gooeyfxParams} />}
+                  {activeParticle === "eyetrack" && <EyetrackCanvas params={eyetrackParams} />}
+                  {activeParticle === "liquidtrans" && <LiquidtransCanvas params={liquidtransParams} />}
+                  {activeParticle === "dotgrid" && <DotgridCanvas params={dotgridParams} animStateRef={dotgridAnimRef} />}
+                </div>
+              </div>
+
+              {/* Right: Control Panel (40%) */}
+              <div className="flex-[2] flex flex-col min-h-0">
+                <div className="h-full bg-neutral-100 rounded-2xl flex flex-col overflow-hidden">
+                  <div className="p-3 overflow-y-auto flex-1 min-h-0">
+                    {activeParticle === "fission" && (
+                      <FissionControls params={fissionParams} onChange={setFissionParams} />
+                    )}
+                    {activeParticle === "metaball" && (
+                      <MetaballControls params={metaballParams} onChange={setMetaballParams} />
+                    )}
+                    {activeParticle === "sdfmorph" && (
+                      <SdfmorphControls params={sdfmorphParams} onChange={setSdfmorphParams} />
+                    )}
+                    {activeParticle === "lettermorph" && (
+                      <LettermorphControls params={lettermorphParams} onChange={setLettermorphParams} />
+                    )}
+                    {activeParticle === "liquidfill" && (
+                      <LiquidfillControls params={liquidfillParams} onChange={setLiquidfillParams} />
+                    )}
+                    {activeParticle === "gooeyfx" && (
+                      <GooeyfxControls params={gooeyfxParams} onChange={setGooeyfxParams} />
+                    )}
+                    {activeParticle === "eyetrack" && (
+                      <EyetrackControls params={eyetrackParams} onChange={setEyetrackParams} />
+                    )}
+                    {activeParticle === "liquidtrans" && (
+                      <LiquidtransControls params={liquidtransParams} onChange={setLiquidtransParams} />
+                    )}
+                    {activeParticle === "dotgrid" && (
+                      <DotgridControls params={dotgridParams} onChange={setDotgridParams} animStateRef={dotgridAnimRef} />
+                    )}
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Particle Strip */}
+            <ParticleStrip active={activeParticle} onSelect={setActiveParticle} />
+          </>
         )}
       </div>
 
@@ -614,6 +768,8 @@ const App: React.FC = () => {
               ? shaderGuides[activeShader]
               : activeCategory === "demos"
               ? (demoGuides[activeDemo] as any)
+              : activeCategory === "particle"
+              ? (particleGuides[activeParticle] as any)
               : (playgroundGuides[activePlayground] as any)
           }
           onClose={() => setShowTechModal(false)}

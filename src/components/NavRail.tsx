@@ -1,5 +1,5 @@
 import React from "react";
-import { Layers, Palette, Sparkles, Info } from "lucide-react";
+import { Layers, Palette, Sparkles, Atom, Info } from "lucide-react";
 import type { Category } from "../data/shaderTypes";
 
 interface NavRailProps {
@@ -11,6 +11,7 @@ const NAV_ITEMS: { id: Category; label: string; icon: React.FC<{ size?: number }
   { id: "shaders", label: "Shaders", icon: Layers },
   { id: "demos", label: "Demos", icon: Sparkles },
   { id: "playground", label: "Play", icon: Palette },
+  { id: "particle", label: "Particle", icon: Atom },
 ];
 
 export const NavRail: React.FC<NavRailProps> = ({ activeCategory, onCategoryChange }) => {

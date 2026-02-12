@@ -16,7 +16,7 @@ export type ShaderType =
   | "trainjourney"
   | "horizon";
 
-export type Category = "shaders" | "playground" | "demos";
+export type Category = "shaders" | "playground" | "demos" | "particle";
 
 export interface ShaderEntry {
   id: ShaderType;
