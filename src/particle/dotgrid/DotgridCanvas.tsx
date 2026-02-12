@@ -1,9 +1,15 @@
 import React, { useEffect, useRef, useCallback } from "react";
 import type { DotgridParams } from "./types";
 
+interface PhaseOverride {
+  trigger: boolean;
+  phase: number;
+}
+
 interface Props {
   params: DotgridParams;
   animStateRef?: React.MutableRefObject<{ phase: number; progress: number }>;
+  phaseOverrideRef?: React.MutableRefObject<PhaseOverride | null>;
 }
 
 const easeInOutQuart = (t: number) =>
@@ -220,12 +226,14 @@ function renderFrame(
   }
 }
 
-export const DotgridCanvas: React.FC<Props> = ({ params, animStateRef }) => {
+export const DotgridCanvas: React.FC<Props> = ({ params, animStateRef, phaseOverrideRef }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const paramsRef = useRef(params);
   paramsRef.current = params;
   const animStateRefProp = useRef(animStateRef);
   animStateRefProp.current = animStateRef;
+  const phaseOverrideRefProp = useRef(phaseOverrideRef);
+  phaseOverrideRefProp.current = phaseOverrideRef;
 
   const sizeRef = useRef({ w: 0, h: 0 });
 
@@ -284,6 +292,15 @@ export const DotgridCanvas: React.FC<Props> = ({ params, animStateRef }) => {
     const tick = (ts: number) => {
       const a = animRef.current;
       const p = paramsRef.current;
+
+      // Phase override from music mode
+      const overrideRef = phaseOverrideRefProp.current;
+      if (overrideRef?.current?.trigger) {
+        a.phase = overrideRef.current.phase;
+        a.accumulatedTime = 0;
+        a.lastTimestamp = ts;
+        overrideRef.current.trigger = false;
+      }
 
       if (a.lastTimestamp === null) a.lastTimestamp = ts;
       const dt = (ts - a.lastTimestamp) * p.speed;

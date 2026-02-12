@@ -1,4 +1,4 @@
-export type ParticleType = "fission" | "metaball" | "sdfmorph" | "lettermorph" | "liquidfill" | "gooeyfx" | "eyetrack" | "liquidtrans" | "dotgrid";
+export type ParticleType = "fission" | "metaball" | "sdfmorph" | "lettermorph" | "liquidfill" | "gooeyfx" | "eyetrack" | "liquidtrans" | "dotgrid" | "dotgrid2";
 
 export interface ParticleEntry {
   id: ParticleType;
@@ -51,5 +51,10 @@ export const PARTICLES: ParticleEntry[] = [
     id: "dotgrid",
     name: "Dot Grid",
     description: "Canvas 2D dot-to-grid morphing with staggered easing",
+  },
+  {
+    id: "dotgrid2",
+    name: "Dot Grid 2.0",
+    description: "Music-choreographed dot formations with timeline-driven narrative",
   },
 ];

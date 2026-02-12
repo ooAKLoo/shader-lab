@@ -11,3 +11,8 @@ export interface DotgridParams {
   shrinkDuration: number;
   spinDuration: number;
 }
+
+export interface MusicModeState {
+  enabled: boolean;
+  audioFile: File | null;
+}

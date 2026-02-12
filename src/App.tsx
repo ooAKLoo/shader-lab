@@ -105,8 +105,12 @@ import type { LiquidtransParams } from "./particle/liquidtrans/types";
 import { DEFAULT_CONFIG as DEFAULT_LIQUIDTRANS } from "./particle/liquidtrans/constants";
 import { DotgridCanvas } from "./particle/dotgrid/DotgridCanvas";
 import { DotgridControls } from "./particle/dotgrid/DotgridControls";
-import type { DotgridParams } from "./particle/dotgrid/types";
+import type { DotgridParams, MusicModeState } from "./particle/dotgrid/types";
 import { DEFAULT_CONFIG as DEFAULT_DOTGRID } from "./particle/dotgrid/constants";
+import { Dotgrid2Canvas } from "./particle/dotgrid2/layer3_render/Dotgrid2Canvas";
+import { Dotgrid2Controls } from "./particle/dotgrid2/layer3_render/Dotgrid2Controls";
+import type { Dotgrid2AudioAnalysis, Dotgrid2Params } from "./particle/dotgrid2/shared/types";
+import { DEFAULT_CONFIG as DEFAULT_DOTGRID2 } from "./particle/dotgrid2/shared/constants";
 import type { ParticleType } from "./particle/particleTypes";
 import { PARTICLES } from "./particle/particleTypes";
 import { ParticleStrip } from "./components/ParticleStrip";
@@ -340,6 +344,30 @@ const App: React.FC = () => {
   const [liquidtransParams, setLiquidtransParams] = useState<LiquidtransParams>(DEFAULT_LIQUIDTRANS);
   const [dotgridParams, setDotgridParams] = useState<DotgridParams>(DEFAULT_DOTGRID);
   const dotgridAnimRef = useRef({ phase: 0, progress: 0 });
+  const [dotgridMusicMode, setDotgridMusicMode] = useState<MusicModeState>({ enabled: false, audioFile: null });
+  const dotgridPhaseOverrideRef = useRef<{ trigger: boolean; phase: number } | null>(null);
+  const [dotgrid2Params, setDotgrid2Params] = useState<Dotgrid2Params>(DEFAULT_DOTGRID2);
+  const dotgrid2AudioTimeRef = useRef(0);
+  const dotgrid2AnalysisRef = useRef<Dotgrid2AudioAnalysis>({
+    bass: 0,
+    mud: 0,
+    mid: 0,
+    high: 0,
+    energy: 0,
+    onset: 0,
+    isBeat: false,
+    lowBeat: false,
+    midBeat: false,
+    highBeat: false,
+    lookAheadKick: 0,
+    lookAheadSnare: 0,
+    lookAheadHat: 0,
+    anticipation: 0,
+    bpm: 96,
+    beatInBar: 0,
+    barProgress: 0,
+  });
+  const [dotgrid2Playing, setDotgrid2Playing] = useState(false);
   const [showTechModal, setShowTechModal] = useState(false);
 
   const meta = SHADER_META[activeShader];
@@ -714,7 +742,8 @@ const App: React.FC = () => {
                   {activeParticle === "gooeyfx" && <GooeyfxCanvas params={gooeyfxParams} />}
                   {activeParticle === "eyetrack" && <EyetrackCanvas params={eyetrackParams} />}
                   {activeParticle === "liquidtrans" && <LiquidtransCanvas params={liquidtransParams} />}
-                  {activeParticle === "dotgrid" && <DotgridCanvas params={dotgridParams} animStateRef={dotgridAnimRef} />}
+                  {activeParticle === "dotgrid" && <DotgridCanvas params={dotgridParams} animStateRef={dotgridAnimRef} phaseOverrideRef={dotgridPhaseOverrideRef} />}
+                  {activeParticle === "dotgrid2" && <Dotgrid2Canvas params={dotgrid2Params} audioTimeRef={dotgrid2AudioTimeRef} analysisRef={dotgrid2AnalysisRef} isPlaying={dotgrid2Playing} />}
                 </div>
               </div>
 
@@ -747,7 +776,23 @@ const App: React.FC = () => {
                       <LiquidtransControls params={liquidtransParams} onChange={setLiquidtransParams} />
                     )}
                     {activeParticle === "dotgrid" && (
-                      <DotgridControls params={dotgridParams} onChange={setDotgridParams} animStateRef={dotgridAnimRef} />
+                      <DotgridControls
+                        params={dotgridParams}
+                        onChange={setDotgridParams}
+                        animStateRef={dotgridAnimRef}
+                        musicMode={dotgridMusicMode}
+                        onMusicModeChange={setDotgridMusicMode}
+                        phaseOverrideRef={dotgridPhaseOverrideRef}
+                      />
+                    )}
+                    {activeParticle === "dotgrid2" && (
+                      <Dotgrid2Controls
+                        params={dotgrid2Params}
+                        onChange={setDotgrid2Params}
+                        audioTimeRef={dotgrid2AudioTimeRef}
+                        analysisRef={dotgrid2AnalysisRef}
+                        onPlayingChange={setDotgrid2Playing}
+                      />
                     )}
                   </div>
                 </div>

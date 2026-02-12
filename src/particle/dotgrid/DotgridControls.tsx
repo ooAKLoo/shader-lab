@@ -1,11 +1,22 @@
-import React, { useMemo } from "react";
-import type { DotgridParams } from "./types";
+import React, { useMemo, useEffect, useRef, useCallback } from "react";
+import type { DotgridParams, MusicModeState } from "./types";
 import { PhaseTimeline, type PhaseInfo } from "../PhaseTimeline";
+import { useAudioAnalyzer } from "./useAudioAnalyzer";
+import { mapAudioToParams, resetMusicState, Choreographer } from "./musicPresets";
+import { MusicModeSection } from "./MusicModeSection";
+
+interface PhaseOverride {
+  trigger: boolean;
+  phase: number;
+}
 
 interface Props {
   params: DotgridParams;
   onChange: (params: DotgridParams) => void;
   animStateRef?: React.RefObject<{ phase: number; progress: number }>;
+  musicMode: MusicModeState;
+  onMusicModeChange: (state: MusicModeState) => void;
+  phaseOverrideRef: React.MutableRefObject<PhaseOverride | null>;
 }
 
 const Slider: React.FC<{
@@ -37,8 +48,82 @@ const Slider: React.FC<{
   </div>
 );
 
-export const DotgridControls: React.FC<Props> = ({ params: rawParams, onChange, animStateRef }) => {
+export const DotgridControls: React.FC<Props> = ({
+  params: rawParams,
+  onChange,
+  animStateRef,
+  musicMode,
+  onMusicModeChange,
+  phaseOverrideRef,
+}) => {
   const params = { shrinkDuration: 1200, spinDuration: 1000, ...rawParams };
+
+  const {
+    analysisRef,
+    audioState,
+    fileName,
+    duration,
+    currentTime,
+    loadFile,
+    toggle,
+    seek,
+    cleanup: cleanupAudio,
+  } = useAudioAnalyzer();
+
+  const musicRafRef = useRef<number>(0);
+  const choreographerRef = useRef(new Choreographer());
+  const savedParamsRef = useRef<DotgridParams | null>(null);
+
+  // Music mode RAF loop: read analysis → choreographer → map to params
+  const musicTick = useCallback(() => {
+    if (!musicMode.enabled) return;
+    const analysis = analysisRef.current;
+    const mapped = mapAudioToParams(analysis, params);
+    onChange(mapped);
+
+    // Choreographer: zone-based phase management
+    // Read current Canvas phase from animStateRef
+    const currentPhase = animStateRef?.current?.phase ?? 0;
+    const skipTo = choreographerRef.current.update(analysis, currentPhase);
+    if (skipTo !== null) {
+      phaseOverrideRef.current = { trigger: true, phase: skipTo };
+    }
+
+    musicRafRef.current = requestAnimationFrame(musicTick);
+  }, [musicMode.enabled, analysisRef, animStateRef, params, onChange, phaseOverrideRef]);
+
+  // Start/stop music RAF when mode or playback changes
+  useEffect(() => {
+    if (musicMode.enabled && audioState === "playing") {
+      musicRafRef.current = requestAnimationFrame(musicTick);
+    } else {
+      cancelAnimationFrame(musicRafRef.current);
+    }
+    return () => cancelAnimationFrame(musicRafRef.current);
+  }, [musicMode.enabled, audioState, musicTick]);
+
+  // Save/restore params when toggling music mode
+  const handleMusicToggle = useCallback((enabled: boolean) => {
+    if (enabled) {
+      savedParamsRef.current = { ...params };
+      resetMusicState();
+      choreographerRef.current.reset();
+    } else {
+      cleanupAudio();
+      if (savedParamsRef.current) {
+        onChange(savedParamsRef.current);
+        savedParamsRef.current = null;
+      }
+      phaseOverrideRef.current = null;
+      choreographerRef.current.reset();
+    }
+    onMusicModeChange({ ...musicMode, enabled, audioFile: enabled ? musicMode.audioFile : null });
+  }, [params, onChange, onMusicModeChange, musicMode, cleanupAudio, phaseOverrideRef]);
+
+  const handleLoadFile = useCallback((file: File) => {
+    loadFile(file);
+    onMusicModeChange({ ...musicMode, audioFile: file });
+  }, [loadFile, onMusicModeChange, musicMode]);
 
   const phases: PhaseInfo[] = useMemo(() => [
     {
@@ -100,6 +185,8 @@ export const DotgridControls: React.FC<Props> = ({ params: rawParams, onChange, 
   静态显示独立十字形`;
   }, [params]);
 
+  const slidersDisabled = musicMode.enabled;
+
   return (
     <>
       {/* Phase Timeline */}
@@ -111,8 +198,23 @@ export const DotgridControls: React.FC<Props> = ({ params: rawParams, onChange, 
         />
       )}
 
+      {/* Music Mode */}
+      <MusicModeSection
+        enabled={musicMode.enabled}
+        onToggle={handleMusicToggle}
+        audioState={audioState}
+        fileName={fileName}
+        duration={duration}
+        currentTime={currentTime}
+        onLoadFile={handleLoadFile}
+        onTogglePlay={toggle}
+        onSeek={seek}
+        analysisRef={analysisRef}
+        choreographer={choreographerRef.current}
+      />
+
       {/* Grid */}
-      <div className="bg-white rounded-xl p-3 mb-2">
+      <div className={`bg-white rounded-xl p-3 mb-2 ${slidersDisabled ? "opacity-50 pointer-events-none" : ""}`}>
         <div className="text-[9px] font-medium text-neutral-400 uppercase tracking-wide mb-3">
           Grid
         </div>
@@ -137,7 +239,7 @@ export const DotgridControls: React.FC<Props> = ({ params: rawParams, onChange, 
       </div>
 
       {/* Animation */}
-      <div className="bg-white rounded-xl p-3 mb-2">
+      <div className={`bg-white rounded-xl p-3 mb-2 ${slidersDisabled ? "opacity-50 pointer-events-none" : ""}`}>
         <div className="text-[9px] font-medium text-neutral-400 uppercase tracking-wide mb-3">
           Animation
         </div>
@@ -194,7 +296,7 @@ export const DotgridControls: React.FC<Props> = ({ params: rawParams, onChange, 
       </div>
 
       {/* Color */}
-      <div className="bg-white rounded-xl p-3 mb-2">
+      <div className={`bg-white rounded-xl p-3 mb-2 ${slidersDisabled ? "opacity-50 pointer-events-none" : ""}`}>
         <div className="text-[9px] font-medium text-neutral-400 uppercase tracking-wide mb-3">
           Color
         </div>
