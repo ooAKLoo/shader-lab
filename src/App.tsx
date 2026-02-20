@@ -123,6 +123,18 @@ import { ColumnFieldCanvas } from "./particle/columnfield/ColumnFieldCanvas";
 import { ColumnFieldControls } from "./particle/columnfield/ColumnFieldControls";
 import type { ColumnFieldParams } from "./particle/columnfield/types";
 import { DEFAULT_CONFIG as DEFAULT_COLUMNFIELD } from "./particle/columnfield/constants";
+import { RadialflowCanvas } from "./particle/radialflow/RadialflowCanvas";
+import { RadialflowControls } from "./particle/radialflow/RadialflowControls";
+import type { RadialflowParams } from "./particle/radialflow/types";
+import { DEFAULT_CONFIG as DEFAULT_RADIALFLOW } from "./particle/radialflow/constants";
+import { EnergyflowCanvas } from "./particle/energyflow/EnergyflowCanvas";
+import { EnergyflowControls } from "./particle/energyflow/EnergyflowControls";
+import type { EnergyflowParams } from "./particle/energyflow/types";
+import { DEFAULT_CONFIG as DEFAULT_ENERGYFLOW } from "./particle/energyflow/constants";
+import { SankeyflowCanvas } from "./particle/sankeyflow/SankeyflowCanvas";
+import { SankeyflowControls } from "./particle/sankeyflow/SankeyflowControls";
+import type { SankeyflowParams } from "./particle/sankeyflow/types";
+import { DEFAULT_CONFIG as DEFAULT_SANKEYFLOW } from "./particle/sankeyflow/constants";
 import type { ParticleType } from "./particle/particleTypes";
 import { PARTICLES } from "./particle/particleTypes";
 import { ParticleStrip } from "./components/ParticleStrip";
@@ -383,6 +395,9 @@ const App: React.FC = () => {
     confidence: 0,
   });
   const [dotgrid2Playing, setDotgrid2Playing] = useState(false);
+  const [radialflowParams, setRadialflowParams] = useState<RadialflowParams>(DEFAULT_RADIALFLOW);
+  const [energyflowParams, setEnergyflowParams] = useState<EnergyflowParams>(DEFAULT_ENERGYFLOW);
+  const [sankeyflowParams, setSankeyflowParams] = useState<SankeyflowParams>(DEFAULT_SANKEYFLOW);
   const [columnfieldParams, setColumnfieldParams] = useState<ColumnFieldParams>(DEFAULT_COLUMNFIELD);
   const columnfieldAnalysisRef = useRef<Dotgrid2AudioAnalysis>({
     bass: 0, mud: 0, mid: 0, high: 0, energy: 0, onset: 0,
@@ -739,6 +754,9 @@ const App: React.FC = () => {
                   : activeParticle === "eyetrack" ? "Eye Track"
                   : activeParticle === "liquidtrans" ? "Liquid Trans"
                   : activeParticle === "columnfield" ? "Column Field"
+                  : activeParticle === "radialflow" ? "Radial Flow"
+                  : activeParticle === "energyflow" ? "Energy Flow"
+                  : activeParticle === "sankeyflow" ? "Sankey Flow"
                   : "Dot Grid"}
               </span>
               <span className="text-[9px] px-1.5 py-0.5 rounded bg-neutral-100 text-neutral-400">
@@ -751,6 +769,9 @@ const App: React.FC = () => {
                   : activeParticle === "eyetrack" ? "CSS Cursor Tracking + Lerp Smoothing + Blink Animation"
                   : activeParticle === "liquidtrans" ? "Simplex Noise + Double Domain Warping + Smoothstep Banding"
                   : activeParticle === "columnfield" ? "Three.js Instanced Mesh + GLSL FBM + Audio FFT Texture"
+                  : activeParticle === "radialflow" ? "Canvas 2D Bezier Particle Flow + Radial Energy Streams"
+                  : activeParticle === "energyflow" ? "Multi-Stream Bezier Convergence + Screen Blending Glow"
+                  : activeParticle === "sankeyflow" ? "Cubic Bezier Sankey Branches + Offscreen Glow Compositing"
                   : "Canvas 2D Dot-to-Grid Morphing + Staggered Easing"}
               </span>
               <div className="flex-1" />
@@ -789,6 +810,9 @@ const App: React.FC = () => {
                   {activeParticle === "dotgrid" && <DotgridCanvas params={dotgridParams} animStateRef={dotgridAnimRef} phaseOverrideRef={dotgridPhaseOverrideRef} />}
                   {activeParticle === "dotgrid2" && <Dotgrid2Canvas params={dotgrid2Params} audioTimeRef={dotgrid2AudioTimeRef} analysisRef={dotgrid2AnalysisRef} isPlaying={dotgrid2Playing} />}
                   {activeParticle === "columnfield" && <ColumnFieldCanvas params={columnfieldParams} analysisRef={columnfieldAnalysisRef} analyserNodeRef={columnfieldAnalyserNodeRef} />}
+                  {activeParticle === "radialflow" && <RadialflowCanvas params={radialflowParams} />}
+                  {activeParticle === "energyflow" && <EnergyflowCanvas params={energyflowParams} />}
+                  {activeParticle === "sankeyflow" && <SankeyflowCanvas params={sankeyflowParams} />}
                 </div>
               </div>
 
@@ -847,6 +871,15 @@ const App: React.FC = () => {
                         analyserNodeRef={columnfieldAnalyserNodeRef}
                         onPlayingChange={setColumnfieldPlaying}
                       />
+                    )}
+                    {activeParticle === "radialflow" && (
+                      <RadialflowControls params={radialflowParams} onChange={setRadialflowParams} />
+                    )}
+                    {activeParticle === "energyflow" && (
+                      <EnergyflowControls params={energyflowParams} onChange={setEnergyflowParams} />
+                    )}
+                    {activeParticle === "sankeyflow" && (
+                      <SankeyflowControls params={sankeyflowParams} onChange={setSankeyflowParams} />
                     )}
                   </div>
                 </div>

@@ -1,4 +1,4 @@
-export type ParticleType = "fission" | "metaball" | "sdfmorph" | "lettermorph" | "liquidfill" | "gooeyfx" | "eyetrack" | "liquidtrans" | "dotgrid" | "dotgrid2" | "columnfield";
+export type ParticleType = "fission" | "metaball" | "sdfmorph" | "lettermorph" | "liquidfill" | "gooeyfx" | "eyetrack" | "liquidtrans" | "dotgrid" | "dotgrid2" | "columnfield" | "radialflow" | "energyflow" | "sankeyflow";
 
 export interface ParticleEntry {
   id: ParticleType;
@@ -61,5 +61,20 @@ export const PARTICLES: ParticleEntry[] = [
     id: "columnfield",
     name: "Column Field",
     description: "Three.js 3D instanced column field driven by audio analysis",
+  },
+  {
+    id: "radialflow",
+    name: "Radial Flow",
+    description: "Canvas 2D radial particle flow with Bezier curves and energy streams",
+  },
+  {
+    id: "energyflow",
+    name: "Energy Flow",
+    description: "Multi-stream Bezier energy convergence with screen blending glow",
+  },
+  {
+    id: "sankeyflow",
+    name: "Sankey Flow",
+    description: "Sankey-style radial energy flow with cubic Bezier branches and offscreen glow",
   },
 ];
