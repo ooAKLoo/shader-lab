@@ -43,6 +43,7 @@ export const EMPTY_ANALYSIS: Dotgrid2AudioAnalysis = {
   bpm: DEFAULT_BPM,
   beatInBar: 0,
   barProgress: 0,
+  confidence: 0,
 };
 
 function clamp(v: number, min: number, max: number): number {
@@ -159,6 +160,7 @@ export function useAudioAnalyzer() {
 
   const precomputedRef = useRef<PrecomputedTrack | null>(null);
   const preprocessTokenRef = useRef(0);
+  const phaseAnchorRef = useRef(0);
 
   const envelopeRef = useRef({
     bass: { value: 0, hold: 0 },
@@ -203,6 +205,7 @@ export function useAudioAnalyzer() {
     cooldownRef.current = { low: 0, mid: 0, high: 0 };
     beatTimesRef.current = [];
     bpmRef.current = DEFAULT_BPM;
+    phaseAnchorRef.current = 0;
 
     envelopeRef.current = {
       bass: { value: 0, hold: 0 },
@@ -338,20 +341,25 @@ export function useAudioAnalyzer() {
     const preFrame = samplePrecomputedFrame(preTrack, now);
 
     if (preFrame) {
-      if (!lowBeat && cooldownRef.current.low <= 1 && preFrame.lowBeat) {
+      if (!lowBeat && cooldownRef.current.low <= 3 && preFrame.lowBeat) {
         lowBeat = true;
         cooldownRef.current.low = LOW_COOLDOWN;
         beatTimesRef.current.push(now);
         if (beatTimesRef.current.length > 20) beatTimesRef.current.shift();
       }
-      if (!midBeat && cooldownRef.current.mid <= 1 && preFrame.midBeat) {
+      if (!midBeat && cooldownRef.current.mid <= 3 && preFrame.midBeat) {
         midBeat = true;
         cooldownRef.current.mid = MID_COOLDOWN;
       }
-      if (!highBeat && cooldownRef.current.high <= 1 && preFrame.highBeat) {
+      if (!highBeat && cooldownRef.current.high <= 3 && preFrame.highBeat) {
         highBeat = true;
         cooldownRef.current.high = HIGH_COOLDOWN;
       }
+    }
+
+    // Update phase anchor on lowBeat
+    if (lowBeat) {
+      phaseAnchorRef.current = now;
     }
 
     const times = beatTimesRef.current;
@@ -372,9 +380,13 @@ export function useAudioAnalyzer() {
     }
 
     const bpm = clamp(bpmRef.current, 72, 182);
-    const beats = (now * bpm) / 60;
-    const beatInBar = ((Math.floor(beats) % 4) + 4) % 4;
-    const barProgress = (((beats % 4) + 4) % 4) / 4;
+    const beatDuration = 60 / bpm;
+
+    // Phase-locked barProgress based on anchor
+    const elapsed = now - phaseAnchorRef.current;
+    const beatsFromAnchor = elapsed / beatDuration;
+    const beatInBar = ((Math.floor(beatsFromAnchor) % 4) + 4) % 4;
+    const barProgress = (((beatsFromAnchor % 4) + 4) % 4) / 4;
 
     const onsetRaw = clamp((lowScore * 1.15 + midScore + highScore * 0.84) * 2.5, 0, 1);
     const isBeat = lowBeat || midBeat || highBeat;
@@ -398,6 +410,7 @@ export function useAudioAnalyzer() {
         bpm,
         beatInBar,
         barProgress,
+        confidence: 0,
       },
       preTrack,
       now
@@ -433,6 +446,7 @@ export function useAudioAnalyzer() {
       bpm: clamp(safeNumber(bpm, DEFAULT_BPM), 72, 182),
       beatInBar: ((Math.floor(safeNumber(beatInBar)) % 4) + 4) % 4,
       barProgress: clamp(safeNumber(barProgress), 0, 1),
+      confidence: clamp(safeNumber(merged.confidence), 0, 1),
     };
 
     rafIdRef.current = requestAnimationFrame(analyzeFrame);
@@ -583,6 +597,7 @@ export function useAudioAnalyzer() {
   return {
     analysisRef,
     audioTimeRef,
+    analyserNodeRef: analyserRef,
     audioState,
     fileName,
     duration,

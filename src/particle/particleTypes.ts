@@ -1,4 +1,4 @@
-export type ParticleType = "fission" | "metaball" | "sdfmorph" | "lettermorph" | "liquidfill" | "gooeyfx" | "eyetrack" | "liquidtrans" | "dotgrid" | "dotgrid2";
+export type ParticleType = "fission" | "metaball" | "sdfmorph" | "lettermorph" | "liquidfill" | "gooeyfx" | "eyetrack" | "liquidtrans" | "dotgrid" | "dotgrid2" | "columnfield";
 
 export interface ParticleEntry {
   id: ParticleType;
@@ -56,5 +56,10 @@ export const PARTICLES: ParticleEntry[] = [
     id: "dotgrid2",
     name: "Dot Grid 2.0",
     description: "Music-choreographed dot formations with timeline-driven narrative",
+  },
+  {
+    id: "columnfield",
+    name: "Column Field",
+    description: "Three.js 3D instanced column field driven by audio analysis",
   },
 ];

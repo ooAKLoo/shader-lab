@@ -58,6 +58,7 @@ export interface Dotgrid2AudioAnalysis {
   bpm: number;
   beatInBar: number;
   barProgress: number;
+  confidence: number;
 }
 
 export type FormationType =
@@ -130,6 +131,5 @@ export interface Dotgrid2Params {
   bgR: number;
   bgG: number;
   bgB: number;
-  directionProfile: "balanced" | "rhythm" | "story";
-  directionStrength: number;
+  formation: FormationType;
 }

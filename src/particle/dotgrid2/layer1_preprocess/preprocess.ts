@@ -21,6 +21,7 @@ export interface PrecomputedFrame {
   lowBeat: boolean;
   midBeat: boolean;
   highBeat: boolean;
+  confidence: number;
 }
 
 export interface PrecomputedTrack {
@@ -220,11 +221,14 @@ export function preprocessAudioBuffer(buffer: AudioBuffer): PrecomputedTrack {
   const onsetRaw = new Array<number>(length).fill(0);
   const energy = new Array<number>(length).fill(0);
 
+  const confidenceRaw = new Array<number>(length).fill(0);
+
   const lowFluxHistory: number[] = [];
   const midFluxHistory: number[] = [];
   const highFluxHistory: number[] = [];
   const mudFluxHistory: number[] = [];
   const rmsFluxHistory: number[] = [];
+  const hfcFluxHistory: number[] = [];
 
   const lowBeatTimes: number[] = [];
   const midBeatTimes: number[] = [];
@@ -235,6 +239,7 @@ export function preprocessAudioBuffer(buffer: AudioBuffer): PrecomputedTrack {
   let prevMid = 0;
   let prevHigh = 0;
   let prevRms = 0;
+  let prevHfc = 0;
 
   let cooldownLow = 0;
   let cooldownMid = 0;
@@ -247,6 +252,9 @@ export function preprocessAudioBuffer(buffer: AudioBuffer): PrecomputedTrack {
     const high = highSeries[i];
     const rms = rmsSeries[i];
 
+    // HFC approximation: frequency-weighted band sum
+    const hfc = bass * 0.05 + mud * 0.15 + mid * 0.35 + high * 0.45;
+
     energy[i] = bass * 0.58 + mid * 0.26 + high * 0.16;
 
     const lowFlux = Math.max(0, bass - prevBass);
@@ -254,18 +262,21 @@ export function preprocessAudioBuffer(buffer: AudioBuffer): PrecomputedTrack {
     const midFlux = Math.max(0, mid - prevMid);
     const highFlux = Math.max(0, high - prevHigh);
     const rmsFlux = Math.max(0, rms - prevRms);
+    const hfcFlux = Math.max(0, hfc - prevHfc);
 
     prevBass = bass;
     prevMud = mud;
     prevMid = mid;
     prevHigh = high;
     prevRms = rms;
+    prevHfc = hfc;
 
     pushHistory(lowFluxHistory, lowFlux, 64);
     pushHistory(midFluxHistory, midFlux, 64);
     pushHistory(highFluxHistory, highFlux, 64);
     pushHistory(mudFluxHistory, mudFlux, 64);
     pushHistory(rmsFluxHistory, rmsFlux, 64);
+    pushHistory(hfcFluxHistory, hfcFlux, 64);
 
     if (cooldownLow > 0) cooldownLow--;
     if (cooldownMid > 0) cooldownMid--;
@@ -276,14 +287,16 @@ export function preprocessAudioBuffer(buffer: AudioBuffer): PrecomputedTrack {
     const meanHighFlux = mean(highFluxHistory);
     const meanMudFlux = mean(mudFluxHistory);
     const meanRmsFlux = mean(rmsFluxHistory);
+    const meanHfcFlux = mean(hfcFluxHistory);
 
-    const lowScore = lowFlux * 1.52 + rmsFlux * 0.68 - mudFlux * 0.72;
-    const midScore = midFlux * 1.22 + rmsFlux * 0.36;
-    const highScore = highFlux * 1.18 + rmsFlux * 0.3;
+    // Include hfcFlux contribution in beat scoring
+    const lowScore = lowFlux * 1.52 + rmsFlux * 0.68 + hfcFlux * 0.18 - mudFlux * 0.72;
+    const midScore = midFlux * 1.22 + rmsFlux * 0.36 + hfcFlux * 0.22;
+    const highScore = highFlux * 1.18 + rmsFlux * 0.3 + hfcFlux * 0.28;
 
-    const lowThreshold = meanLowFlux * 1.44 + meanRmsFlux * 0.36 + meanMudFlux * 0.45 + 0.008;
-    const midThreshold = meanMidFlux * 1.62 + meanRmsFlux * 0.28 + 0.007;
-    const highThreshold = meanHighFlux * 1.75 + meanRmsFlux * 0.22 + 0.006;
+    const lowThreshold = meanLowFlux * 1.44 + meanRmsFlux * 0.36 + meanMudFlux * 0.45 + meanHfcFlux * 0.1 + 0.008;
+    const midThreshold = meanMidFlux * 1.62 + meanRmsFlux * 0.28 + meanHfcFlux * 0.12 + 0.007;
+    const highThreshold = meanHighFlux * 1.75 + meanRmsFlux * 0.22 + meanHfcFlux * 0.14 + 0.006;
 
     const time = i * frameStep;
 
@@ -304,6 +317,12 @@ export function preprocessAudioBuffer(buffer: AudioBuffer): PrecomputedTrack {
     }
 
     onsetRaw[i] = Math.max(0, lowScore * 1.12 + midScore * 0.9 + highScore * 0.8);
+
+    // Confidence: flux/meanFlux ratio mixed with energy
+    const totalFlux = lowFlux + midFlux + highFlux;
+    const totalMeanFlux = meanLowFlux + meanMidFlux + meanHighFlux + 1e-6;
+    const fluxRatio = clamp(totalFlux / totalMeanFlux, 0, 4) / 4;
+    confidenceRaw[i] = clamp(fluxRatio * 0.6 + energy[i] * 0.4, 0, 1);
   }
 
   const onset = normalizeSeries(onsetRaw);
@@ -322,6 +341,7 @@ export function preprocessAudioBuffer(buffer: AudioBuffer): PrecomputedTrack {
       lowBeat: lowBeatFlags[i],
       midBeat: midBeatFlags[i],
       highBeat: highBeatFlags[i],
+      confidence: confidenceRaw[i],
     };
   }
 
@@ -380,12 +400,17 @@ export function mergeWithPrecomputed(
   const frame = samplePrecomputedFrame(track, time);
   if (!frame) return base;
 
-  const bass = base.bass * 0.58 + frame.bass * 0.42;
-  const mud = base.mud * 0.62 + frame.mud * 0.38;
-  const mid = base.mid * 0.64 + frame.mid * 0.36;
-  const high = base.high * 0.65 + frame.high * 0.35;
-  const energy = base.energy * 0.64 + frame.energy * 0.36;
-  const onset = clamp(base.onset * 0.62 + frame.onset * 0.38, 0, 1);
+  // Adaptive preWeight based on frame confidence (0.28 ~ 0.52)
+  const preWeight = clamp(0.28 + frame.confidence * 0.24, 0.28, 0.52);
+  const liveWeight = 1 - preWeight;
+
+  const bass = base.bass * liveWeight + frame.bass * preWeight;
+  const mud = base.mud * (liveWeight + 0.04) + frame.mud * (preWeight - 0.04);
+  const mid = base.mid * liveWeight + frame.mid * preWeight;
+  const high = base.high * liveWeight + frame.high * preWeight;
+  const energy = base.energy * liveWeight + frame.energy * preWeight;
+  const onset = clamp(base.onset * liveWeight + frame.onset * preWeight, 0, 1);
+  const confidence = frame.confidence;
 
   return {
     ...base,
@@ -395,5 +420,6 @@ export function mergeWithPrecomputed(
     high: clamp(high, 0, 1),
     energy: clamp(energy, 0, 1),
     onset,
+    confidence,
   };
 }

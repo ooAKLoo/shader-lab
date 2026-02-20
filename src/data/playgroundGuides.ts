@@ -735,6 +735,301 @@ gsap.to(".bubble", {
       "**逐字动画的核心是「拆分 + 索引 + 公式」**。Splitting.js 负责拆分并注入索引变量，CSS calc() 负责根据索引计算时序，@keyframes 负责定义运动曲线。三者配合，一条 CSS 规则就能驱动任意数量的字符动画。核心术语链：**Text Splitting**（文字拆分）→ **--char-index**（CSS 变量索引）→ **Stagger Delay**（交错延迟）→ **Nested Transforms**（嵌套变换分离）。记住：**变量是声明式动画的引擎——有了索引，一切皆可计算**。",
   },
 
+  textparticle: {
+    id: "textparticle",
+    title: "Text Particle",
+    subtitle: "粒子文字变形",
+    oneLiner:
+      "基于 Canvas 像素采样和粒子插值的 Text Morphing（文字变形）效果——将文字拆解为粒子，在两个字形间做空间插值过渡",
+    whatYouSee:
+      "一个字符由数千个小圆点组成，点击 Morph 后，这些粒子从源字符的形状飞散、重组为目标字符。每个粒子沿各自的路径平滑运动，整体呈现出流畅的变形过渡。这种效果叫 **Particle Text Morphing（粒子文字变形）**，核心是 **离屏 Canvas 像素采样** + **空间就近匹配** + **逐帧 Lerp 插值**。",
+    pipeline: [
+      {
+        step: "01",
+        title: "离屏 Canvas 采样 (Offscreen Sampling)",
+        description:
+          "将目标文字渲染到一个不可见的 Canvas 上，然后逐像素扫描 imageData：alpha > 128 的像素坐标被收集为「有效点」。这一步把矢量文字转换为离散的点云。",
+        glsl: `const offscreen = document.createElement("canvas");
+const ctx = offscreen.getContext("2d");
+ctx.fillText(char, cx, cy);
+const data = ctx.getImageData(0, 0, w, h);
+// 扫描像素，收集非透明坐标
+for (let y = 0; y < h; y += step) {
+  for (let x = 0; x < w; x += step) {
+    if (data[(y * w + x) * 4 + 3] > 128)
+      points.push({ x, y });
+  }
+}`,
+      },
+      {
+        step: "02",
+        title: "随机采样 + 就近匹配 (Sampling & Matching)",
+        description:
+          "从源字符和目标字符各随机采样 N 个点（如 3000 个），然后通过空间就近匹配（nearest neighbor）将源点和目标点一一配对。匹配质量直接影响变形的视觉流畅度——就近匹配让粒子走最短路径。",
+        glsl: `// Fisher-Yates shuffle + slice(0, N)
+shuffle(sourcePoints).slice(0, count);
+shuffle(targetPoints).slice(0, count);
+// 就近匹配：每个源点找最近的目标点
+for (const src of sourcePoints) {
+  const nearest = findNearest(src, targetPoints);
+  particles.push({ sx: src.x, sy: src.y,
+                    tx: nearest.x, ty: nearest.y });
+}`,
+      },
+      {
+        step: "03",
+        title: "缓动插值 (Easing Interpolation)",
+        description:
+          "每帧递增 progress（0→1），通过 easeInOutCubic 缓动函数映射为平滑的 t 值。每个粒子的当前位置 = lerp(source, target, t)。缓动函数让动画「慢→快→慢」，而非匀速直线运动。",
+        glsl: `// Cubic ease-in-out
+const t = progress < 0.5
+  ? 4 * p * p * p
+  : 1 - Math.pow(-2 * p + 2, 3) / 2;
+// 每个粒子插值
+x = sx + (tx - sx) * t;
+y = sy + (ty - sy) * t;`,
+      },
+      {
+        step: "04",
+        title: "多渲染模式 (Render Modes)",
+        description:
+          "提供三种可视化方式：Dots（圆点）直接在插值位置画圆；Trail（拖尾）用速度向量绘制运动尾迹；Pixel Grid（像素网格）将位置对齐到网格产生像素风格。不同模式改变的只是绘制方式，插值逻辑不变。",
+        glsl: `// Dots 模式
+ctx.arc(x, y, size, 0, Math.PI * 2);
+// Trail 模式：用速度向量画尾迹
+ctx.moveTo(x, y);
+ctx.lineTo(x - vx * 3, y - vy * 3);
+// Pixel 模式：对齐到网格
+const gx = Math.round(x / grid) * grid;
+ctx.fillRect(gx, gy, grid - 1, grid - 1);`,
+      },
+      {
+        step: "05",
+        title: "自动循环 (Auto Loop)",
+        description:
+          "当 progress 到达 1 时，延迟后翻转方向（forward ↔ backward），重置 progress 为 0，开始反向变形。源字符和目标字符之间来回切换，形成无限循环动画。",
+        glsl: `if (progress >= 1 && autoLoop) {
+  setTimeout(() => {
+    forward = !forward;
+    progress = 0;
+    animating = true;
+  }, 800);
+}`,
+      },
+    ],
+    concepts: [
+      {
+        name: "粒子文字变形",
+        nameEN: "Particle Text Morphing",
+        analogy:
+          "想象一群萤火虫先排成「A」的形状，然后同时飞向各自的新位置，重新排成「B」的形状",
+        explanation:
+          "Particle Text Morphing 将文字视为点的集合而非笔画。通过离屏 Canvas 采样获取字形的像素坐标，建立源→目标的点对应关系，再用插值动画驱动每个点从源位置移动到目标位置。这是零依赖的纯 Canvas 方案，适合任何字符（中英文、emoji）。",
+        whyItMatters:
+          "知道 Particle Text Morphing 后，你就能对 AI 说「我需要 particle text morphing 效果，3000 个粒子，easeInOut 缓动」——精确描述想要的文字变形方案。",
+      },
+      {
+        name: "离屏 Canvas 采样",
+        nameEN: "Offscreen Canvas Pixel Sampling",
+        analogy:
+          "把文字「拍」成照片，然后扫描照片上哪些像素是有颜色的——这些像素的坐标就是文字的「骨架」",
+        explanation:
+          "在不可见的 Canvas 上渲染文字，通过 getImageData 获取像素数据，筛选 alpha > 阈值的像素坐标。采样步长（step）控制点的密度：step=1 最精确但点数多，step=4 粗糙但轻量。这是将任意 Canvas 可渲染内容转换为点云的通用技术。",
+        whyItMatters:
+          "知道 offscreen canvas sampling 后，你就能对 AI 说「用离屏 Canvas 采样文字像素坐标，step 2，alpha 阈值 128」——这是粒子文字效果的标准起点。",
+      },
+      {
+        name: "空间就近匹配",
+        nameEN: "Nearest Neighbor Matching",
+        analogy:
+          "每个萤火虫找离自己最近的目标位置飞过去——而不是随机分配，这样整体运动路径最短、最自然",
+        explanation:
+          "将源点和目标点做就近匹配（greedy nearest neighbor），让每个粒子走最短路径到目标。这避免了随机配对导致的「粒子交叉」混乱。更高级的方案可以用 Hungarian Algorithm 做最优匹配，但就近贪心已经够好。",
+        whyItMatters:
+          "知道 nearest neighbor matching 后，你就能对 AI 说「源和目标点用就近匹配配对，避免交叉路径」——这是粒子变形流畅度的关键。",
+      },
+      {
+        name: "缓动函数",
+        nameEN: "Easing Function",
+        analogy:
+          "汽车启动时慢慢加速、到站前慢慢减速——不是匀速行驶，而是有自然的加减速曲线",
+        explanation:
+          "Easing 函数将线性的 t∈[0,1] 映射为非线性的曲线。easeInOut 两端慢中间快（cubic-bezier），easeOut 快开始慢结束。在粒子动画中，easing 让变形的起止更柔和、中间更果断。CSS 的 transition-timing-function 和 JS 动画库都基于此。",
+        whyItMatters:
+          "知道 easing 后，你就能对 AI 说「用 cubic easeInOut 缓动，duration 1.2s」——而不是说「动画要有那种慢慢开始慢慢结束的感觉」。",
+      },
+    ],
+    applications: [
+      {
+        field: "品牌动画",
+        examples:
+          "Logo 字符变形、品牌名称过渡动画、数字倒计时粒子效果",
+      },
+      {
+        field: "数据可视化",
+        examples:
+          "数字 KPI 变化动画、图表标签切换、统计数据的粒子化展示",
+      },
+      {
+        field: "互动体验",
+        examples:
+          "输入框粒子反馈、搜索结果过渡、游戏计分动画",
+      },
+      {
+        field: "创意编程",
+        examples:
+          "生成艺术中的文字元素、音乐可视化字符、互动装置的粒子投影",
+      },
+    ],
+    keyInsight:
+      "**粒子文字变形的本质是「把文字当图片处理」**。不需要理解字体的矢量结构——只要能渲染出来，就能采样成点云，就能做任意变形。这是一种「暴力但通用」的方案：对 Canvas 能画的一切（文字、图标、图片）都适用。核心术语链：**Offscreen Canvas Sampling**（像素采样）→ **Nearest Neighbor Matching**（就近配对）→ **Easing Interpolation**（缓动插值）→ **Render Mode**（可视化模式）。记住：**当你不知道数据的结构时，把它光栅化成像素总是可行的**。",
+  },
+
+  pathmorph: {
+    id: "pathmorph",
+    title: "Path Morph",
+    subtitle: "SVG 路径文字变形",
+    oneLiner:
+      "基于 opentype.js 字体解析和 flubber SVG Path 插值的轮廓级文字变形——在矢量层面实现字符间的平滑过渡",
+    whatYouSee:
+      "一个字符的轮廓线平滑地变形为另一个字符：笔画弯曲、延伸、收缩，像液态金属一样在两个形状之间流动。与粒子方案不同，这里的变形是连续的曲线——没有离散的点，而是完整的矢量路径在变化。这种效果叫 **SVG Path Morphing（路径变形）**，核心是 **opentype.js**（字体解析）+ **flubber**（路径插值）。",
+    pipeline: [
+      {
+        step: "01",
+        title: "字体加载 (Font Loading)",
+        description:
+          "用 opentype.js 从 CDN 加载字体文件（.ttf/.otf），解析为 Font 对象。opentype.js 能读取字体中每个字符的矢量轮廓数据——贝塞尔曲线控制点、路径指令等。",
+        glsl: `import opentype from "opentype.js";
+const font = await opentype.load(
+  "https://fonts.gstatic.com/.../Roboto.ttf"
+);
+// font.getPath("A", x, y, size)
+// → 返回 SVG path 数据`,
+      },
+      {
+        step: "02",
+        title: "字符转 Path (Glyph to SVG Path)",
+        description:
+          "调用 font.getPath(char, x, y, fontSize) 获取字符的 SVG path 对象，再转为 d 属性字符串（如 \"M10 20 L30 40 C...\"）。这个字符串完整描述了字符的矢量轮廓。",
+        glsl: `function charToPath(font, char, size) {
+  const path = font.getPath(char, 0, 0, size);
+  // 提取 d 属性字符串
+  return path.toSVG()
+    .replace(/<path d="/, "")
+    .replace(/".*/, "");
+}
+// "M 37.5 -225 L 150 0 L 262.5 -225 ..."`,
+      },
+      {
+        step: "03",
+        title: "路径插值 (Path Interpolation with flubber)",
+        description:
+          "flubber.interpolate(pathA, pathB) 创建一个插值器函数。它自动处理两条路径的点数不一致——通过细分和重采样让两条路径「点数对齐」，然后对每个控制点做插值。调用 interpolator(t) 返回 t 时刻的中间路径。",
+        glsl: `import { interpolate } from "flubber";
+const morph = interpolate(pathA, pathB, {
+  maxSegmentLength: 5  // 控制精度
+});
+// morph(0)   → pathA（源字符）
+// morph(0.5) → 中间过渡形态
+// morph(1)   → pathB（目标字符）`,
+      },
+      {
+        step: "04",
+        title: "动画驱动 (RAF Animation)",
+        description:
+          "用 requestAnimationFrame 驱动动画循环。每帧计算 elapsed / duration 得到 rawT，通过缓动函数映射为 t，调用 interpolator(t) 获取当前帧的 path 数据，更新 SVG <path> 元素的 d 属性。",
+        glsl: `function animate() {
+  const elapsed = (now - startTime) / 1000;
+  const rawT = Math.min(1, elapsed / duration);
+  const t = easing(rawT);
+  // 更新 SVG path
+  pathEl.setAttribute("d", interpolator(t));
+  requestAnimationFrame(animate);
+}`,
+      },
+      {
+        step: "05",
+        title: "自动往返 (Auto Reverse)",
+        description:
+          "动画到达终点后，延迟一段时间，翻转方向重新播放——目标字符变形回源字符。通过切换 forward 标志改变 t 的计算方向，无需重建插值器。",
+        glsl: `if (rawT >= 1) {
+  setTimeout(() => {
+    forward = !forward;
+    startTime = performance.now();
+  }, 600);
+}
+// 正向：t = easing(rawT)
+// 反向：t = easing(1 - rawT)`,
+      },
+    ],
+    concepts: [
+      {
+        name: "SVG 路径变形",
+        nameEN: "SVG Path Morphing",
+        analogy:
+          "两根铁丝弯成不同形状——找到对应的弯折点，然后同时弯曲每个点，铁丝就从一个形状平滑变成另一个",
+        explanation:
+          "SVG Path Morphing 在矢量层面对两条路径做插值。核心挑战是「点数对齐」：字母 O 可能有 20 个控制点，字母 W 可能有 40 个。flubber 通过路径重采样和细分自动解决这个问题，让两条路径的点数一致后再做逐点插值。",
+        whyItMatters:
+          "知道 SVG Path Morphing 后，你就能对 AI 说「我需要两个 SVG shape 之间的 path morphing，用 flubber 做路径插值」——而不是说「那种形状变来变去的效果」。",
+      },
+      {
+        name: "字体解析",
+        nameEN: "Font Parsing (opentype.js)",
+        analogy:
+          "字体文件是一本「字符图纸大全」——opentype.js 能翻开任意一页，读出那个字符的精确绘制指令",
+        explanation:
+          "opentype.js 是一个纯 JavaScript 字体解析器，支持 TrueType (.ttf) 和 OpenType (.otf)。它能读取 glyph 的 Bezier 曲线路径、度量信息（advance width、baseline）、kerning 对等。getPath() 方法直接返回可用于 SVG 或 Canvas 的路径数据。",
+        whyItMatters:
+          "知道 opentype.js 后，你就能对 AI 说「用 opentype.js 解析字体，提取字符的 SVG path 数据」——这是做精确字形动画的基础工具。",
+      },
+      {
+        name: "路径插值库",
+        nameEN: "flubber (Path Interpolation)",
+        analogy:
+          "两张拼图的形状不同——flubber 自动给它们加辅助点，让它们「点数匹配」后就能逐点变形",
+        explanation:
+          "flubber 是专门做 SVG path 插值的库。它解决了 SVG 动画中最难的问题：两条路径的控制点数量和类型不同时如何插值。flubber 通过 subdivide → resample → interpolate 三步流程，让任意两条路径之间都能平滑过渡。",
+        whyItMatters:
+          "知道 flubber 后，你就能对 AI 说「用 flubber.interpolate 做两个 SVG path 之间的平滑变形」——这是目前最好用的 JS 路径插值方案。",
+      },
+      {
+        name: "贝塞尔曲线",
+        nameEN: "Bézier Curve",
+        analogy:
+          "在两个钉子之间绷一根橡皮筋，再用手指从侧面推——手指的位置就是控制点，决定了曲线的弯曲程度",
+        explanation:
+          "字体轮廓由二次（TrueType）或三次（OpenType）贝塞尔曲线构成。每条曲线由起点、终点和 1-2 个控制点定义。SVG 的 C/Q 指令直接对应三次/二次贝塞尔。路径变形本质上就是对这些控制点做坐标插值。",
+        whyItMatters:
+          "知道 Bézier curve 后，你就能对 AI 说「字体轮廓是 cubic Bézier curves，我需要在两组控制点之间做插值」——理解变形的数学本质。",
+      },
+    ],
+    applications: [
+      {
+        field: "品牌 Logo 动画",
+        examples:
+          "Logo 字母间的平滑过渡、品牌 icon 的形态切换、字体 A/B 变体展示",
+      },
+      {
+        field: "数据可视化",
+        examples:
+          "饼图→柱状图的形态变形、地图区域的形状过渡、组织架构图节点变化",
+      },
+      {
+        field: "UI 过渡",
+        examples:
+          "汉堡菜单 ↔ 关闭按钮的图标变形、播放 ↔ 暂停按钮、展开/折叠箭头",
+      },
+      {
+        field: "教学演示",
+        examples:
+          "字体设计中 glyph 变体的可视化、贝塞尔曲线原理教学、笔画顺序动画",
+      },
+    ],
+    keyInsight:
+      "**路径变形和粒子变形是两种根本不同的范式**。粒子方案把文字「打碎」成离散的点，变形是点的飞行——适合炫酷的粒子效果。路径方案保持文字的矢量轮廓完整，变形是曲线的连续形变——适合精确的形态过渡。核心术语链：**opentype.js**（字体解析）→ **SVG Path**（矢量轮廓提取）→ **flubber.interpolate**（路径点数对齐 + 逐点插值）→ **Bézier Curve**（曲线控制点动画）。记住：**粒子是像素级的暴力方案，路径是矢量级的精确方案——选择取决于你要「酷」还是要「准」**。",
+  },
+
   squares: {
     id: "squares",
     title: "Squares",

@@ -1,22 +1,16 @@
 import React, { useCallback, useEffect, useRef } from "react";
-import type { Dotgrid2AudioAnalysis, Dotgrid2Params, FormationType } from "../shared/types";
-import { useAudioAnalyzer } from "../layer2_analysis/useAudioAnalyzer";
-import { DEFAULT_LRC_URL, DEFAULT_TRACK_TITLE, DEFAULT_TRACK_URL } from "../content/media";
-import { getLyricAtTime, loadLrc, type LyricLine } from "../content/lyrics";
+import type { Dotgrid2AudioAnalysis } from "../dotgrid2/shared/types";
+import { useAudioAnalyzer } from "../dotgrid2/layer2_analysis/useAudioAnalyzer";
+import type { ColumnFieldParams } from "./types";
+import { PALETTES, VIZ_MODES, LAYOUT_SHAPES } from "./presets";
 
 interface Props {
-  params: Dotgrid2Params;
-  onChange: (params: Dotgrid2Params) => void;
-  audioTimeRef: React.MutableRefObject<number>;
+  params: ColumnFieldParams;
+  onChange: (params: ColumnFieldParams) => void;
   analysisRef: React.MutableRefObject<Dotgrid2AudioAnalysis>;
+  analyserNodeRef: React.MutableRefObject<AnalyserNode | null>;
   onPlayingChange: (playing: boolean) => void;
 }
-
-const VISUAL_LEAD_SEC = 0.04;
-
-const FORMATION_OPTIONS: FormationType[] = [
-  "grid", "scatter", "wave", "circle", "heart", "burst", "spiral", "converge", "ripple",
-];
 
 function formatTime(s: number): string {
   const m = Math.floor(s / 60);
@@ -24,11 +18,15 @@ function formatTime(s: number): string {
   return `${m}:${sec.toString().padStart(2, "0")}`;
 }
 
-export const Dotgrid2Controls: React.FC<Props> = ({
+function clamp01(v: number): number {
+  return Math.max(0, Math.min(1, v));
+}
+
+export const ColumnFieldControls: React.FC<Props> = ({
   params,
   onChange,
-  audioTimeRef,
   analysisRef: sharedAnalysisRef,
+  analyserNodeRef: sharedAnalyserNodeRef,
   onPlayingChange,
 }) => {
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -43,23 +41,17 @@ export const Dotgrid2Controls: React.FC<Props> = ({
 
   const bpmLabelRef = useRef<HTMLDivElement>(null);
 
-  const lyricCurrentRef = useRef<HTMLDivElement>(null);
-  const lyricNextRef = useRef<HTMLDivElement>(null);
-
   const meterRafRef = useRef<number>(0);
   const beatVisualRef = useRef({ kick: 0, snare: 0, hat: 0 });
-  const didInitRef = useRef(false);
-  const lyricsRef = useRef<LyricLine[]>([]);
 
   const {
     analysisRef,
-    audioTimeRef: localAudioTimeRef,
+    analyserNodeRef,
     audioState,
     fileName,
     duration,
     currentTime,
     loadFile,
-    loadUrl,
     toggle,
     seek,
   } = useAudioAnalyzer();
@@ -68,31 +60,15 @@ export const Dotgrid2Controls: React.FC<Props> = ({
     onPlayingChange(audioState === "playing");
   }, [audioState, onPlayingChange]);
 
-  useEffect(() => {
-    if (didInitRef.current) return;
-    didInitRef.current = true;
-
-    loadUrl(DEFAULT_TRACK_URL, DEFAULT_TRACK_TITLE);
-    void loadLrc(DEFAULT_LRC_URL).then((lines) => {
-      lyricsRef.current = lines;
-    });
-  }, [loadUrl]);
-
-  const handleUseDefault = useCallback(() => {
-    loadUrl(DEFAULT_TRACK_URL, DEFAULT_TRACK_TITLE);
-    void loadLrc(DEFAULT_LRC_URL).then((lines) => {
-      lyricsRef.current = lines;
-    });
-  }, [loadUrl]);
-
   const updateMeters = useCallback(() => {
     const a = analysisRef.current;
-    const t = localAudioTimeRef.current;
 
-    const visualTime = duration > 0 ? Math.min(duration, t + VISUAL_LEAD_SEC) : t + VISUAL_LEAD_SEC;
-
+    // Bridge: sync analysis data to shared refs
     sharedAnalysisRef.current = { ...a };
-    audioTimeRef.current = visualTime;
+    // Bridge: sync raw analyser node
+    if (analyserNodeRef.current) {
+      sharedAnalyserNodeRef.current = analyserNodeRef.current;
+    }
 
     if (bassBarRef.current) bassBarRef.current.style.width = `${clamp01(a.bass) * 100}%`;
     if (midBarRef.current) midBarRef.current.style.width = `${clamp01(a.mid) * 100}%`;
@@ -110,16 +86,8 @@ export const Dotgrid2Controls: React.FC<Props> = ({
       bpmLabelRef.current.textContent = `${Math.round(a.bpm)} BPM · Beat ${a.beatInBar + 1}/4`;
     }
 
-    const lyricState = getLyricAtTime(lyricsRef.current, t + 0.02);
-    if (lyricCurrentRef.current) {
-      lyricCurrentRef.current.textContent = lyricState.current || "-";
-    }
-    if (lyricNextRef.current) {
-      lyricNextRef.current.textContent = lyricState.next || "";
-    }
-
     meterRafRef.current = requestAnimationFrame(updateMeters);
-  }, [analysisRef, audioTimeRef, duration, localAudioTimeRef, sharedAnalysisRef]);
+  }, [analysisRef, analyserNodeRef, sharedAnalysisRef, sharedAnalyserNodeRef]);
 
   useEffect(() => {
     meterRafRef.current = requestAnimationFrame(updateMeters);
@@ -128,14 +96,12 @@ export const Dotgrid2Controls: React.FC<Props> = ({
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (file) {
-      loadFile(file);
-      lyricsRef.current = [];
-    }
+    if (file) loadFile(file);
   };
 
   return (
     <>
+      {/* Music */}
       <div className="bg-white rounded-xl p-3 mb-2">
         <div className="text-[9px] font-medium text-neutral-400 uppercase tracking-wide mb-3">Music</div>
         <div className="flex flex-col gap-2.5">
@@ -152,12 +118,6 @@ export const Dotgrid2Controls: React.FC<Props> = ({
               className="text-[9px] px-2 py-1 rounded-md bg-neutral-100 hover:bg-neutral-200 text-neutral-500 transition-colors flex-shrink-0"
             >
               {fileName ? "Change" : "Upload Song"}
-            </button>
-            <button
-              onClick={handleUseDefault}
-              className="text-[9px] px-2 py-1 rounded-md bg-neutral-900 text-white hover:bg-neutral-800 transition-colors flex-shrink-0"
-            >
-              Use Default
             </button>
             {fileName && <span className="text-[9px] text-neutral-400 truncate">{fileName}</span>}
           </div>
@@ -220,37 +180,122 @@ export const Dotgrid2Controls: React.FC<Props> = ({
         </div>
       </div>
 
+      {/* Viz Mode */}
       <div className="bg-white rounded-xl p-3 mb-2">
-        <div className="text-[9px] font-medium text-neutral-400 uppercase tracking-wide mb-3">Lyrics</div>
-        <div ref={lyricCurrentRef} className="text-[12px] text-neutral-800 leading-relaxed min-h-6" />
-        <div ref={lyricNextRef} className="text-[9px] text-neutral-400 mt-1 min-h-4" />
-      </div>
-
-      <div className="bg-white rounded-xl p-3 mb-2">
-        <div className="text-[9px] font-medium text-neutral-400 uppercase tracking-wide mb-3">Formation</div>
+        <div className="text-[9px] font-medium text-neutral-400 uppercase tracking-wide mb-3">Viz Mode</div>
         <div className="flex flex-wrap gap-1">
-          {FORMATION_OPTIONS.map((f) => (
+          {Object.entries(VIZ_MODES).map(([key, info]) => (
             <button
-              key={f}
-              onClick={() => onChange({ ...params, formation: f })}
+              key={key}
+              onClick={() => onChange({ ...params, vizMode: key })}
               className={`text-[9px] px-2 py-1 rounded-md transition-colors ${
-                params.formation === f
+                params.vizMode === key
                   ? "bg-neutral-900 text-white"
                   : "bg-neutral-100 text-neutral-500 hover:bg-neutral-200"
               }`}
             >
-              {f}
+              {info.name}
             </button>
           ))}
+        </div>
+      </div>
+
+      {/* Shape */}
+      <div className="bg-white rounded-xl p-3 mb-2">
+        <div className="text-[9px] font-medium text-neutral-400 uppercase tracking-wide mb-3">Shape</div>
+        <div className="flex flex-wrap gap-1">
+          {Object.entries(LAYOUT_SHAPES).map(([key, info]) => (
+            <button
+              key={key}
+              onClick={() => onChange({ ...params, layoutShape: key })}
+              className={`text-[9px] px-2 py-1 rounded-md transition-colors ${
+                params.layoutShape === key
+                  ? "bg-neutral-900 text-white"
+                  : "bg-neutral-100 text-neutral-500 hover:bg-neutral-200"
+              }`}
+            >
+              {info.name}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Palette */}
+      <div className="bg-white rounded-xl p-3 mb-2">
+        <div className="text-[9px] font-medium text-neutral-400 uppercase tracking-wide mb-3">Palette</div>
+        <div className="flex flex-wrap gap-1">
+          {Object.entries(PALETTES).map(([key, pal]) => (
+            <button
+              key={key}
+              onClick={() => onChange({ ...params, palette: key })}
+              className={`text-[9px] px-2 py-1 rounded-md transition-colors flex items-center gap-1 ${
+                params.palette === key
+                  ? "bg-neutral-900 text-white"
+                  : "bg-neutral-100 text-neutral-500 hover:bg-neutral-200"
+              }`}
+            >
+              <span
+                className="w-2 h-2 rounded-full flex-shrink-0"
+                style={{ background: pal.glow }}
+              />
+              {pal.name}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Bloom */}
+      <div className="bg-white rounded-xl p-3 mb-2">
+        <div className="text-[9px] font-medium text-neutral-400 uppercase tracking-wide mb-3">Bloom</div>
+        <div className="flex flex-col gap-2">
+          <SliderRow
+            label="Intensity"
+            value={params.bloomIntensity}
+            min={0} max={5} step={0.1}
+            onChange={(v) => onChange({ ...params, bloomIntensity: v })}
+          />
+          <SliderRow
+            label="Threshold"
+            value={params.bloomThreshold}
+            min={0} max={1} step={0.05}
+            onChange={(v) => onChange({ ...params, bloomThreshold: v })}
+          />
+          <SliderRow
+            label="Radius"
+            value={params.bloomRadius}
+            min={0} max={1} step={0.05}
+            onChange={(v) => onChange({ ...params, bloomRadius: v })}
+          />
+        </div>
+      </div>
+
+      {/* Camera */}
+      <div className="bg-white rounded-xl p-3 mb-2">
+        <div className="text-[9px] font-medium text-neutral-400 uppercase tracking-wide mb-3">Camera</div>
+        <div className="flex flex-col gap-2">
+          <SliderRow
+            label="Orbit Speed"
+            value={params.cameraOrbitSpeed}
+            min={0} max={0.5} step={0.01}
+            onChange={(v) => onChange({ ...params, cameraOrbitSpeed: v })}
+          />
+          <SliderRow
+            label="Distance"
+            value={params.cameraDistance}
+            min={5} max={20} step={0.5}
+            onChange={(v) => onChange({ ...params, cameraDistance: v })}
+          />
+          <SliderRow
+            label="Height"
+            value={params.cameraHeight}
+            min={2} max={12} step={0.5}
+            onChange={(v) => onChange({ ...params, cameraHeight: v })}
+          />
         </div>
       </div>
     </>
   );
 };
-
-function clamp01(v: number): number {
-  return Math.max(0, Math.min(1, v));
-}
 
 const MeterRow: React.FC<{ label: string; refEl: React.RefObject<HTMLDivElement>; color: string }> = ({
   label,
@@ -262,5 +307,26 @@ const MeterRow: React.FC<{ label: string; refEl: React.RefObject<HTMLDivElement>
     <div className="flex-1 h-1.5 bg-neutral-100 rounded-full overflow-hidden">
       <div ref={refEl} className={`h-full ${color} rounded-full transition-none`} style={{ width: "0%" }} />
     </div>
+  </div>
+);
+
+const SliderRow: React.FC<{
+  label: string;
+  value: number;
+  min: number;
+  max: number;
+  step: number;
+  onChange: (v: number) => void;
+}> = ({ label, value, min, max, step, onChange }) => (
+  <div className="flex items-center gap-2">
+    <span className="text-[8px] text-neutral-400 w-16 flex-shrink-0">{label}</span>
+    <input
+      type="range"
+      min={min} max={max} step={step}
+      value={value}
+      onChange={(e) => onChange(parseFloat(e.target.value))}
+      className="flex-1 h-1 bg-neutral-200 rounded-full appearance-none cursor-pointer"
+    />
+    <span className="text-[8px] text-neutral-400 tabular-nums w-8 text-right">{value.toFixed(1)}</span>
   </div>
 );

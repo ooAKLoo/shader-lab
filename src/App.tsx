@@ -71,6 +71,14 @@ import { SquaresCanvas } from "./playground/squares/SquaresCanvas";
 import { SquaresControls } from "./playground/squares/SquaresControls";
 import type { SquaresParams } from "./playground/squares/types";
 import { DEFAULT_CONFIG as DEFAULT_SQUARES } from "./playground/squares/constants";
+import { TextparticleCanvas } from "./playground/textparticle/TextparticleCanvas";
+import { TextparticleControls } from "./playground/textparticle/TextparticleControls";
+import type { TextParticleParams } from "./playground/textparticle/types";
+import { DEFAULT_CONFIG as DEFAULT_TEXTPARTICLE } from "./playground/textparticle/constants";
+import { PathmorphCanvas } from "./playground/pathmorph/PathmorphCanvas";
+import { PathmorphControls } from "./playground/pathmorph/PathmorphControls";
+import type { PathmorphParams } from "./playground/pathmorph/types";
+import { DEFAULT_CONFIG as DEFAULT_PATHMORPH } from "./playground/pathmorph/constants";
 import { FissionCanvas } from "./particle/fission/FissionCanvas";
 import { FissionControls } from "./particle/fission/FissionControls";
 import type { FissionParams } from "./particle/fission/types";
@@ -111,6 +119,10 @@ import { Dotgrid2Canvas } from "./particle/dotgrid2/layer3_render/Dotgrid2Canvas
 import { Dotgrid2Controls } from "./particle/dotgrid2/layer3_render/Dotgrid2Controls";
 import type { Dotgrid2AudioAnalysis, Dotgrid2Params } from "./particle/dotgrid2/shared/types";
 import { DEFAULT_CONFIG as DEFAULT_DOTGRID2 } from "./particle/dotgrid2/shared/constants";
+import { ColumnFieldCanvas } from "./particle/columnfield/ColumnFieldCanvas";
+import { ColumnFieldControls } from "./particle/columnfield/ColumnFieldControls";
+import type { ColumnFieldParams } from "./particle/columnfield/types";
+import { DEFAULT_CONFIG as DEFAULT_COLUMNFIELD } from "./particle/columnfield/constants";
 import type { ParticleType } from "./particle/particleTypes";
 import { PARTICLES } from "./particle/particleTypes";
 import { ParticleStrip } from "./components/ParticleStrip";
@@ -333,6 +345,8 @@ const App: React.FC = () => {
   const [flipParams, setFlipParams] = useState<FlipParams>(DEFAULT_FLIP);
   const [framersParams, setFramersParams] = useState<FramersParams>(DEFAULT_FRAMERS);
   const [squaresParams, setSquaresParams] = useState<SquaresParams>(DEFAULT_SQUARES);
+  const [textparticleParams, setTextparticleParams] = useState<TextParticleParams>(DEFAULT_TEXTPARTICLE);
+  const [pathmorphParams, setPathmorphParams] = useState<PathmorphParams>(DEFAULT_PATHMORPH);
   const [activeParticle, setActiveParticle] = useState<ParticleType>("fission");
   const [fissionParams, setFissionParams] = useState<FissionParams>(DEFAULT_FISSION);
   const [metaballParams, setMetaballParams] = useState<MetaballParams>(DEFAULT_METABALL);
@@ -366,8 +380,18 @@ const App: React.FC = () => {
     bpm: 96,
     beatInBar: 0,
     barProgress: 0,
+    confidence: 0,
   });
   const [dotgrid2Playing, setDotgrid2Playing] = useState(false);
+  const [columnfieldParams, setColumnfieldParams] = useState<ColumnFieldParams>(DEFAULT_COLUMNFIELD);
+  const columnfieldAnalysisRef = useRef<Dotgrid2AudioAnalysis>({
+    bass: 0, mud: 0, mid: 0, high: 0, energy: 0, onset: 0,
+    isBeat: false, lowBeat: false, midBeat: false, highBeat: false,
+    lookAheadKick: 0, lookAheadSnare: 0, lookAheadHat: 0, anticipation: 0,
+    bpm: 96, beatInBar: 0, barProgress: 0, confidence: 0,
+  });
+  const columnfieldAnalyserNodeRef = useRef<AnalyserNode | null>(null);
+  const [columnfieldPlaying, setColumnfieldPlaying] = useState(false);
   const [showTechModal, setShowTechModal] = useState(false);
 
   const meta = SHADER_META[activeShader];
@@ -599,7 +623,9 @@ const App: React.FC = () => {
                   : activePlayground === "textmask" ? "Text Mask"
                   : activePlayground === "flip" ? "FLIP"
                   : activePlayground === "framers" ? "Framers"
-                  : "Squares"}
+                  : activePlayground === "squares" ? "Squares"
+                  : activePlayground === "textparticle" ? "Text Particle"
+                  : "Path Morph"}
               </span>
               <span className="text-[9px] px-1.5 py-0.5 rounded bg-neutral-100 text-neutral-400">
                 {activePlayground === "echotrace" ? "Psychedelic Motion Trail"
@@ -607,7 +633,9 @@ const App: React.FC = () => {
                   : activePlayground === "textmask" ? "SVG Mask + GSAP Bubble Reveal"
                   : activePlayground === "flip" ? "GSAP Flip Layout Animation"
                   : activePlayground === "framers" ? "Splitting.js + CSS Stagger Animation"
-                  : "Normal Distribution + Gradient Color Mapping"}
+                  : activePlayground === "squares" ? "Normal Distribution + Gradient Color Mapping"
+                  : activePlayground === "textparticle" ? "Canvas Pixel Sampling + Particle Interpolation"
+                  : "opentype.js + flubber SVG Path Interpolation"}
               </span>
               <div className="flex-1" />
 
@@ -637,11 +665,17 @@ const App: React.FC = () => {
                   className={`rounded-2xl flex-1 overflow-hidden ${
                     activePlayground === "echotrace"
                       ? "bg-neutral-950"
-                      : activePlayground === "textmask" || activePlayground === "framers"
+                      : activePlayground === "textmask" || activePlayground === "framers" || activePlayground === "textparticle" || activePlayground === "pathmorph"
                       ? ""
                       : "bg-white"
                   }`}
-                  style={activePlayground === "textmask" ? { backgroundColor: textmaskParams.bgColor } : activePlayground === "framers" ? { backgroundColor: framersParams.bgColor } : undefined}
+                  style={
+                    activePlayground === "textmask" ? { backgroundColor: textmaskParams.bgColor }
+                    : activePlayground === "framers" ? { backgroundColor: framersParams.bgColor }
+                    : activePlayground === "textparticle" ? { backgroundColor: textparticleParams.bgColor }
+                    : activePlayground === "pathmorph" ? { backgroundColor: pathmorphParams.bgColor }
+                    : undefined
+                  }
                 >
                   {activePlayground === "echotrace" && <EchotraceCanvas params={echotraceParams} />}
                   {activePlayground === "spotlight" && <SpotlightCanvas params={spotlightParams} />}
@@ -649,6 +683,8 @@ const App: React.FC = () => {
                   {activePlayground === "flip" && <FlipCanvas params={flipParams} />}
                   {activePlayground === "framers" && <FramersCanvas params={framersParams} />}
                   {activePlayground === "squares" && <SquaresCanvas params={squaresParams} />}
+                  {activePlayground === "textparticle" && <TextparticleCanvas params={textparticleParams} />}
+                  {activePlayground === "pathmorph" && <PathmorphCanvas params={pathmorphParams} />}
                 </div>
               </div>
 
@@ -674,6 +710,12 @@ const App: React.FC = () => {
                     {activePlayground === "squares" && (
                       <SquaresControls params={squaresParams} onChange={setSquaresParams} />
                     )}
+                    {activePlayground === "textparticle" && (
+                      <TextparticleControls params={textparticleParams} onChange={setTextparticleParams} />
+                    )}
+                    {activePlayground === "pathmorph" && (
+                      <PathmorphControls params={pathmorphParams} onChange={setPathmorphParams} />
+                    )}
                   </div>
                 </div>
               </div>
@@ -696,6 +738,7 @@ const App: React.FC = () => {
                   : activeParticle === "gooeyfx" ? "Gooey FX"
                   : activeParticle === "eyetrack" ? "Eye Track"
                   : activeParticle === "liquidtrans" ? "Liquid Trans"
+                  : activeParticle === "columnfield" ? "Column Field"
                   : "Dot Grid"}
               </span>
               <span className="text-[9px] px-1.5 py-0.5 rounded bg-neutral-100 text-neutral-400">
@@ -707,6 +750,7 @@ const App: React.FC = () => {
                   : activeParticle === "gooeyfx" ? "SVG Gooey Filter (feGaussianBlur + feColorMatrix) Spectrum Bars"
                   : activeParticle === "eyetrack" ? "CSS Cursor Tracking + Lerp Smoothing + Blink Animation"
                   : activeParticle === "liquidtrans" ? "Simplex Noise + Double Domain Warping + Smoothstep Banding"
+                  : activeParticle === "columnfield" ? "Three.js Instanced Mesh + GLSL FBM + Audio FFT Texture"
                   : "Canvas 2D Dot-to-Grid Morphing + Staggered Easing"}
               </span>
               <div className="flex-1" />
@@ -744,6 +788,7 @@ const App: React.FC = () => {
                   {activeParticle === "liquidtrans" && <LiquidtransCanvas params={liquidtransParams} />}
                   {activeParticle === "dotgrid" && <DotgridCanvas params={dotgridParams} animStateRef={dotgridAnimRef} phaseOverrideRef={dotgridPhaseOverrideRef} />}
                   {activeParticle === "dotgrid2" && <Dotgrid2Canvas params={dotgrid2Params} audioTimeRef={dotgrid2AudioTimeRef} analysisRef={dotgrid2AnalysisRef} isPlaying={dotgrid2Playing} />}
+                  {activeParticle === "columnfield" && <ColumnFieldCanvas params={columnfieldParams} analysisRef={columnfieldAnalysisRef} analyserNodeRef={columnfieldAnalyserNodeRef} />}
                 </div>
               </div>
 
@@ -792,6 +837,15 @@ const App: React.FC = () => {
                         audioTimeRef={dotgrid2AudioTimeRef}
                         analysisRef={dotgrid2AnalysisRef}
                         onPlayingChange={setDotgrid2Playing}
+                      />
+                    )}
+                    {activeParticle === "columnfield" && (
+                      <ColumnFieldControls
+                        params={columnfieldParams}
+                        onChange={setColumnfieldParams}
+                        analysisRef={columnfieldAnalysisRef}
+                        analyserNodeRef={columnfieldAnalyserNodeRef}
+                        onPlayingChange={setColumnfieldPlaying}
                       />
                     )}
                   </div>

@@ -1,4 +1,4 @@
-export type PlaygroundType = "echotrace" | "spotlight" | "textmask" | "flip" | "framers" | "squares";
+export type PlaygroundType = "echotrace" | "spotlight" | "textmask" | "flip" | "framers" | "squares" | "textparticle" | "pathmorph";
 
 export interface PlaygroundEntry {
   id: PlaygroundType;
@@ -36,5 +36,15 @@ export const PLAYGROUNDS: PlaygroundEntry[] = [
     id: "squares",
     name: "Squares",
     description: "Generative normal-distributed art",
+  },
+  {
+    id: "textparticle",
+    name: "Text Particle",
+    description: "Canvas particle text morphing",
+  },
+  {
+    id: "pathmorph",
+    name: "Path Morph",
+    description: "SVG path text morphing",
   },
 ];

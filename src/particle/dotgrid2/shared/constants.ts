@@ -11,6 +11,5 @@ export const DEFAULT_CONFIG: Dotgrid2Params = {
   bgR: 250,
   bgG: 250,
   bgB: 250,
-  directionProfile: "rhythm",
-  directionStrength: 0.72,
+  formation: "grid",
 };
