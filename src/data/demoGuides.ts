@@ -440,149 +440,632 @@ onLeave: function() {
       "**毛玻璃效果的本质是「有限透明」——不完全遮挡，也不完全暴露**。核心术语链：**backdrop-filter**（模糊背后内容）→ **Glassmorphism**（设计风格名称）→ **mask-image**（渐变遮罩柔化边缘）→ **cubic-bezier**（弹性缓动增加质感）。记住三件套公式：`backdrop-filter: blur()` + `background: rgba(低透明度)` + `border: rgba(白色微光)` = Glassmorphism。",
   },
 
-  videotext: {
-    id: "videotext",
-    title: "Video Text",
-    subtitle: "SVG 滤镜视频文字填充",
+  scrollformations: {
+    id: "scrollformations",
+    title: "Scroll Formations",
+    subtitle: "滚动驱动网格布局变阵",
     oneLiner:
-      "基于 SVG feComponentTransfer 的视频填充文字效果——文字内部播放视频，同时保持可选择、可复制、可无障碍访问",
+      "基于 GSAP ScrollTrigger + Lenis 的 9 种滚动驱动网格布局变阵动画——用 Pin + Scrub 把滚动变成布局编排的时间轴",
     whatYouSee:
-      "屏幕上有四个区块，每个区块中硕大的「VIDEO TEXT」字样内部正在播放雪山视频。文字周围被纯色或图案背景包围，但文字部分是「镂空」的——你透过文字的轮廓看到背后的视频。最神奇的是：这些文字是真实的 DOM 文本，你可以选中、复制它们。这种效果叫 **Video Text Fill / Text Knockout Effect**，核心技术是 **SVG feComponentTransfer 滤镜**反转 alpha 通道。",
+      "一个摄影作品集页面，当你滚动时，图片以 9 种截然不同的方式从画面外「组装」到最终网格位置。有的从下方落入（**Stagger Drop-In**），有的从中心螺旋展开（**Center Spiral**），有的带 3D 透视从四周汇聚（**3D Converge**），有的像翻书一样从左侧翻入（**3D Card Flip**）。每个动画区域在滚动时会被 **Pin（钉住）**，让你通过继续滚动来「播放」整个编排过程。平滑滚动由 **Lenis** 提供。",
     pipeline: [
       {
         step: "01",
-        title: "定义 SVG Alpha 反转滤镜 (feComponentTransfer)",
+        title: "Pin + Scrub 绑定滚动时间轴 (ScrollTrigger Core)",
         description:
-          "创建一个 SVG filter，用 feFuncA 的 table 映射反转 alpha 通道：alpha=1（文字像素）→ 映射为 0（透明），alpha<0.9（背景像素）→ 映射为 1（不透明）。效果：文字变透明，周围变不透明——刚好和正常渲染相反。",
-        glsl: `<filter id='extract' x='0' y='0' width='1' height='1'>
-  <feComponentTransfer>
-    <!-- alpha 1→0, alpha 0→10(clamped to 1) -->
-    <feFuncA type='table' tableValues='10 0'/>
-  </feComponentTransfer>
-</filter>`,
+          "每个网格区域用 ScrollTrigger 的 pin 钉住父容器，scrub 将滚动距离映射到动画进度。end: '+=250%' 表示需要额外滚动 2.5 个视口高度才能播完动画。这是滚动叙事的核心模式。",
+        glsl: `gsap.timeline({
+  scrollTrigger: {
+    trigger: grid,
+    start: 'center center',   // 网格中心对齐视口中心时开始
+    end: '+=250%',             // 额外滚动 2.5 倍视口高度
+    pin: grid.parentNode,      // 钉住父容器
+    scrub: 0.5                 // 0.5 秒平滑延迟
+  }
+})`,
       },
       {
         step: "02",
-        title: "CSS Grid 层叠视频与文字 (Grid Stacking)",
+        title: "多种 Stagger 策略编排进场顺序 (Stagger Patterns)",
         description:
-          "用 CSS Grid 的 grid-area: 1/1 让 video 和 text-box 完美重叠在同一个网格单元中。视频在底层全宽展示，文字层覆盖在上方。这种堆叠方式比 position: absolute 更灵活，尺寸自动同步。",
-        glsl: `.video-text-container, .text-box { display: grid }
-:is(.video-text-container, .text-box) > * {
-  grid-area: 1/ 1  /* 所有子元素堆叠在同一格 */
-}`,
+          "GSAP 的 stagger 控制元素逐个进场的时序。sequential（顺序）、from: 'center'（中心扩散）、from: 'edges'（边缘向内）、from: 'random'（随机）——不同策略创造截然不同的视觉节奏。",
+        glsl: `// 顺序进场（每个间隔 70ms）
+stagger: 0.07
+
+// 中心扩散（总时长 0.3s）
+stagger: { amount: 0.3, from: 'center' }
+
+// 随机进场
+stagger: { amount: 0.4, from: 'random', grid: [4, 9] }
+
+// 边缘向内
+stagger: { amount: 0.03, from: 'edges', grid: [3, 3] }`,
       },
       {
         step: "03",
-        title: "应用滤镜实现文字镂空 (Filter Application)",
+        title: "3D 透视汇聚变换 (Perspective Converge)",
         description:
-          "给 .text-box 应用 filter: url(#extract)，SVG 滤镜将文字像素的 alpha 设为 0（透明），让视频从文字形状中透出来。同时叠加 drop-shadow 做边缘柔化和立体阴影。注意：背景色的 alpha 必须低于 0.9，否则也会被滤镜反转。",
-        glsl: `.text-box {
-  --c: light-dark(#a9d6e5, #00171f);
-  color: var(--c);
-  filter: url(#extract)     /* alpha 反转 */
-    drop-shadow(0 0 2px var(--c))  /* 边缘柔化 */
-    drop-shadow(2px 2px 4px #020202); /* 立体阴影 */
-  background: rgb(from var(--c) r g b/ .8); /* alpha < .9! */
-}`,
+          "计算每个元素到视口中心的距离和角度，据此设置初始位移（x/y）、旋转（rotateX/Y）和 Z 轴深度。离中心越远的元素旋转和位移越大，形成从四周 3D 汇聚到中心的效果。",
+        glsl: `// 计算元素到视口中心的方向和距离
+const angle = Math.atan2(dy, dx);
+const translateX = Math.cos(angle) * offsetDistance;
+const translateY = Math.sin(angle) * offsetDistance;
+
+// 距离越远，旋转和 Z 偏移越大
+const distanceFactor = currentDistance / maxDistance;
+const rotationX = dirY * (translateY / offset) * maxRotation * distanceFactor;
+const translateZ = maxZTranslation * distanceFactor;`,
       },
       {
         step: "04",
-        title: "背景图 + background-clip: text 变体 (Text Fill Variations)",
+        title: "双层反向滚动 (Dual-Layer Counter-Scroll)",
         description:
-          "进阶变体：用 background-clip: text 让背景图案/渐变填充文字内部，再用 ::after 伪元素承载同一背景（不裁切）作为文字周围的底色。多层背景还可以用 background-blend-mode: hard-light 混合，创造丰富的视觉层次。",
-        glsl: `.back-img {
-  color: #0000;  /* 文字透明，让 background-clip 生效 */
-  background: var(--back);
-  background-clip: text;  /* 背景只在文字内显示 */
-
-  &::after {
-    background: inherit;
-    background-clip: border-box;  /* 伪元素不裁切 */
-    opacity: .8;  /* 保持 alpha < .9 */
-  }
-}`,
+          "第七种动画的精妙之处：外层容器从上方滑入（yPercent: -102 → 0），内层图片同时从下方反向滑入（yPercent: 102 → 0）。两层相对运动创造「揭开」的视差效果。",
+        glsl: `// 外层：从上方滑入
+.fromTo(gridImages, { yPercent: -102 }, {
+  stagger: 0.08,
+  yPercent: 0
+})
+// 内层：同时从下方反向滑入
+.from(innerImages, {
+  stagger: 0.08,
+  yPercent: 102
+}, 0)  // 0 = 同时开始`,
       },
       {
         step: "05",
-        title: "视频自动播放与可见性控制 (Autoplay + IntersectionObserver)",
+        title: "Lenis 平滑滚动集成 (Smooth Scroll Integration)",
         description:
-          "用 CSS 变量 --auto 标记自动播放状态，结合 JS 检测浏览器是否允许自动播放。如果被阻止，动态创建 play/pause 按钮。IntersectionObserver 监听视频可见性，离开视口时自动暂停以节省资源。还通过 prefers-reduced-motion 媒体查询尊重用户偏好。",
-        glsl: `// 检测自动播放权限
-let promise = video.play();
-promise.catch(err => { /* 创建手动播放按钮 */ });
-
-// 可见性控制
-new IntersectionObserver((entries) => {
-  let inview = Math.ceil(entry.intersectionRatio);
-  if(+vid.dataset.auto) vid[['play','pause'][inview]]();
+          "Lenis 以 lerp: 0.15 的插值率提供惯性滚动，通过 lenis.on('scroll', ScrollTrigger.update) 与 GSAP 同步。gsap.ticker.lagSmoothing(0) 关闭延迟补偿，确保帧级精准。",
+        glsl: `const lenis = new Lenis({ lerp: 0.15 });
+// 同步 Lenis 滚动事件到 ScrollTrigger
+lenis.on('scroll', ScrollTrigger.update);
+// 同步 GSAP ticker 到 Lenis 帧更新
+gsap.ticker.add(time => {
+  lenis.raf(time * 1000);
 });`,
       },
     ],
     concepts: [
       {
-        name: "feComponentTransfer",
-        nameEN: "SVG feComponentTransfer Filter",
+        name: "ScrollTrigger Pin",
+        nameEN: "GSAP ScrollTrigger Pin",
         analogy:
-          "像 Photoshop 的「反相」——但只反转透明度通道，文字变透明、背景变不透明",
+          "把页面的某个区域「钉」在屏幕上不动，继续滚动只会推进动画进度——像固定住画布，用滚轮控制画笔",
         explanation:
-          "SVG 滤镜原语 feComponentTransfer 允许对 RGBA 四个通道分别做映射变换。feFuncA type='table' tableValues='10 0' 将 alpha 值做线性插值反转：0→10（clamp 到 1），1→0。这是实现 Text Knockout 的关键，比 mix-blend-mode 方案更可控、文字保持可选。",
+          "pin: element 让指定元素在滚动到触发点后固定在视口中，同时创建等高的空白区域让页面继续可滚动。配合 scrub 使用，滚动距离直接驱动动画时间轴。这是实现「滚动即叙事」的核心机制。",
         whyItMatters:
-          "知道 feComponentTransfer 后，你就能对 AI 说「用 SVG feComponentTransfer 反转 alpha 通道实现 text knockout」——而不是说「让文字变成透明的，能看到后面的视频」。",
+          "知道 ScrollTrigger Pin 后，你就能对 AI 说「用 ScrollTrigger pin 住 section，scrub: 0.5，end: +=300% 来做一个滚动驱动的布局动画」——精准描述滚动锁定+动画驱动的需求。",
       },
       {
-        name: "background-clip: text",
-        nameEN: "CSS background-clip: text",
+        name: "Stagger 编排",
+        nameEN: "GSAP Stagger Orchestration",
         analogy:
-          "把背景图案用文字形状做饼干模具「切割」——只在文字轮廓内显示背景",
+          "多米诺骨牌的倒法——可以从头开始、从中间扩散、从边缘向内、甚至随机倒",
         explanation:
-          "CSS background-clip: text 将元素背景裁切到文字前景区域。配合 color: transparent 使用，可以让任意背景（图片、渐变、视频截图）填充文字。这是 CSS 原生的 Text Fill 方案，但不能直接填充动态视频——需要配合本 demo 的滤镜方案。",
+          "GSAP 的 stagger 支持多种模式：数值（固定间隔）、{ amount, from } 对象（总时长+起点方向）、grid 参数（按网格坐标计算距离）。from 可选 'start'、'center'、'edges'、'end'、'random' 或数字索引。",
         whyItMatters:
-          "知道 background-clip: text 后，你就能对 AI 说「用 background-clip: text + 渐变背景做文字填充效果」——精准描述文字内显示图案的需求。",
+          "知道 Stagger 编排后，你就能对 AI 说「用 stagger: { amount: 0.3, from: 'center', grid: [4, 9] } 从中心向四周扩散」——而不是说「让元素一个接一个出现，从中间开始」。",
       },
       {
-        name: "容器查询单位",
-        nameEN: "Container Query Units (cqw)",
+        name: "CSS Grid 布局变阵",
+        nameEN: "CSS Grid Layout Formation",
         analogy:
-          "vw 相对于视口宽度，cqw 相对于容器宽度——让文字大小跟随容器而非窗口缩放",
+          "同一组元素，通过切换 grid-template 定义可以瞬间重新排列——像军队变阵",
         explanation:
-          "CSS Container Query Units（cqw, cqh 等）让尺寸相对于最近的 container-type: inline-size 祖先。font-size: 30cqw 意味着文字宽度始终是容器的 30%，无论容器在页面中多大。比 vw 更灵活，是组件级响应式设计的基础。",
+          "本 demo 用 9 种不同的 CSS Grid 配置（8x3、5x2、9x4、14x1、15-column 等）展示同一组图片的不同排列方式。grid-template-columns、grid-area、span 等属性控制每种阵型的布局。GSAP 负责动画过渡。",
         whyItMatters:
-          "知道 cqw 后，你就能对 AI 说「文字大小用 clamp(2rem, 30cqw, 25rem) 配合 container-type: inline-size」——实现容器级别的响应式排版。",
+          "知道 Grid Layout Formation 后，你就能对 AI 说「做一个 CSS Grid 布局变阵效果，从 3x3 网格变为单列瀑布流，用 GSAP 做位移动画过渡」——精确描述布局变换需求。",
       },
       {
-        name: "CSS Grid 层叠",
-        nameEN: "CSS Grid Stacking",
+        name: "Lenis 平滑滚动",
+        nameEN: "Lenis Smooth Scroll",
         analogy:
-          "所有子元素放在同一个格子里，像叠卡片一样——比 position: absolute 更优雅的重叠方案",
+          "给浏览器原生滚动加上「惯性」——手指离开后页面还会滑行一段，像在冰面上推物体",
         explanation:
-          "通过 display: grid 配合 grid-area: 1/1 让多个子元素重叠在同一网格区域。相比 absolute 定位，Grid Stacking 不脱离文档流、自动参与尺寸计算、更易维护。是现代 CSS 中实现元素重叠的推荐方式。",
+          "Lenis 通过拦截原生滚动事件，用 lerp（线性插值）平滑化滚动位置。lerp: 0.15 意味着每帧只移动剩余距离的 15%，创造丝滑的惯性感。需要与 GSAP ticker 同步以确保 ScrollTrigger 正确更新。",
         whyItMatters:
-          "知道 CSS Grid Stacking 后，你就能对 AI 说「用 grid-area: 1/1 做元素层叠，替代 absolute 定位」——这是更现代、更健壮的重叠方案。",
+          "知道 Lenis 后，你就能对 AI 说「用 Lenis 做平滑滚动，lerp 0.12，配合 ScrollTrigger.update 同步」——而不是说「让滚动更顺滑」。",
       },
     ],
     applications: [
       {
-        field: "品牌首页 Hero",
+        field: "摄影/作品集网站",
         examples:
-          "用视频填充品牌名称，创造沉浸式的第一印象",
+          "用滚动驱动的网格变阵展示不同系列的作品，每种阵型对应不同的叙事节奏",
       },
       {
-        field: "数据可视化标题",
+        field: "产品发布页",
         examples:
-          "用实时数据流动画填充标题文字，暗示「动态数据」的概念",
+          "产品图片从四面八方 3D 汇聚到中心，营造「万众瞩目」的发布感",
       },
       {
-        field: "交互式海报",
+        field: "年度报告/数据叙事",
         examples:
-          "文字内显示用户摄像头画面或交互式 Canvas，创造参与感",
+          "数据卡片以不同 stagger 策略进场，配合文字段落形成滚动叙事节奏",
       },
       {
-        field: "无障碍视觉设计",
+        field: "电商瀑布流",
         examples:
-          "视觉效果震撼的同时文字保持可选、可复制、屏幕阅读器可读",
+          "商品卡片用 3D flip 或 drop-in 效果逐个进场，提升浏览体验的趣味性",
       },
     ],
     keyInsight:
-      "**视觉效果和语义可访问性不是对立的**。这个 demo 证明：文字可以同时是「视觉容器」（显示视频）和「语义文本」（可选择、可复制、可被屏幕阅读器读取）。核心术语链：**feComponentTransfer**（alpha 通道反转 → text knockout）→ **Grid Stacking**（grid-area: 1/1 → 元素层叠）→ **background-clip: text**（背景裁切 → 文字填充）→ **Container Query Units**（cqw → 容器响应式排版）。关键洞察：SVG 滤镜操作的是渲染层，不影响 DOM 层——所以文字「看起来」是视频，「本质上」仍是真实文本。",
+      "**滚动不只是浏览内容的方式，更是编排视觉节奏的时间轴**。核心术语链：**ScrollTrigger Pin + Scrub**（滚动 → 时间轴映射 + 视口锁定）→ **Stagger Orchestration**（进场时序编排）→ **CSS Grid Formation**（布局变阵）→ **Lenis Smooth Scroll**（惯性平滑）。记住公式：Pin 锁定区域 + Scrub 映射进度 + Stagger 编排顺序 = 滚动叙事动画。9 种变阵的本质是：同一组元素，不同的进场方式（方向、旋转、透视、时序），创造截然不同的情绪。",
+  },
+
+  letteranimations: {
+    id: "letteranimations",
+    title: "Letter Animations",
+    subtitle: "SVG 装饰性字母动画",
+    oneLiner:
+      "基于 Anime.js + Charming.js 的装饰性字母动画——用 SVG 几何形状为文字切换注入粒子爆发效果",
+    whatYouSee:
+      "9 个单词在幻灯片之间切换，每次切换时字母逐个出现/消失，同时大量 SVG 几何形状（圆形、三角、矩形、多边形）从字母位置喷射出来。这种效果叫 **Decorative Letter Animation / Text Particle Burst**。每个幻灯片有不同的动画风格：有的字母从底部弹入配合五彩碎片（**Confetti Burst**），有的圆形轮廓从字母中冒出像气泡（**Bubble Rise**），有的形状散布后持续漂浮（**Floating Debris**），有的字母交替从上下翻转进入（**Alternating Flip**）。背景也随幻灯片滑动过渡。",
+    pipeline: [
+      {
+        step: "01",
+        title: "字母拆分与包裹 (Charming.js Letter Splitting)",
+        description:
+          "Charming.js 将文字节点拆分成独立的 <span>，每个字母单独可控。这是逐字母动画的基础——没有拆分，就无法对单个字母施加独立的 delay、translateY、opacity 动画。类似工具还有 Splitting.js、SplitText。",
+        glsl: `// Charming.js 将 "Hello" 拆分为：
+// <span class="char1">H</span>
+// <span class="char2">e</span>
+// <span class="char3">l</span>
+// ...
+charming(wordElement);
+this.letters = Array.from(word.querySelectorAll('span'));`,
+      },
+      {
+        step: "02",
+        title: "动态创建 SVG 装饰形状 (SVG Shape Generation)",
+        description:
+          "在每个单词的容器中动态创建 SVG 元素，随机选择形状类型（circle、rect、polygon、path）、颜色、填充/描边模式。这些形状初始状态隐藏（opacity: 0），等待动画触发。",
+        glsl: `// 随机创建 SVG 形状
+const types = ['circle', 'rect', 'polygon', 'path'];
+const shapeEl = document.createElementNS(svgNS, type);
+// 设置随机颜色和描边
+shapeEl.style.fill = shapeFill ? color : 'none';
+shapeEl.style.stroke = !shapeFill ? color : 'none';
+shapeEl.style.strokeWidth = shapeStrokeWidth + 'px';`,
+      },
+      {
+        step: "03",
+        title: "字母 Stagger 动画 (Letter Stagger Animation)",
+        description:
+          "用 Anime.js 的 delay 回调函数实现字母逐个进场。不同效果使用不同的 stagger 策略：顺序 delay: i*40、从中间扩散 delay: |total/2 - i| * 60、随机延迟 delay: random(0,75)。配合 translateY、scale、rotate、opacity 等属性创造丰富的入场方式。",
+        glsl: `// 顺序 stagger
+delay: (t, i) => i * 40,
+easing: 'easeOutElastic',
+translateY: ['100%', '0%'],
+opacity: [0, 1]
+
+// 从中间扩散
+delay: (t, i, total) => Math.abs(total/2 - i) * 60
+
+// 交替方向进入
+translateY: (t, i) => i%2 ? ['-80%','0%'] : ['80%','0%']`,
+      },
+      {
+        step: "04",
+        title: "形状粒子爆发动画 (Shape Particle Burst)",
+        description:
+          "字母动画的同时，SVG 形状从字母位置向四周喷射。每个形状有随机的 translateX/Y（扩散方向）、scale（大小）、rotate（旋转）、opacity（渐隐）。anime.random() 让每个形状的轨迹独一无二。形状可以在字母下方（默认）或上方（shapesOnTop: true）。",
+        glsl: `shapesAnimationOpts: {
+  duration: 700,
+  delay: (t, i) => i * 40,
+  easing: 'easeOutExpo',
+  translateX: () => [0, anime.random(-200, 200)],
+  translateY: () => [0, anime.random(-400, 400)],
+  scale: () => [randomBetween(0.2, 0.6), randomBetween(0.2, 0.6)],
+  rotate: () => [0, anime.random(-16, 16)],
+  opacity: [{value:1, duration:1}, {value:0, duration:700}]
+}`,
+      },
+      {
+        step: "05",
+        title: "幻灯片过渡编排 (Slideshow Choreography)",
+        description:
+          "切换时先隐藏当前单词（字母 + 形状的 hide 动画），同时背景用 translateY 滑动过渡，然后显示新单词（字母 + 形状的 show 动画）。用 Promise 控制异步流程，防止动画期间重复触发。支持键盘左右箭头和按钮导航。",
+        glsl: `show(direction) {
+  if (this.isAnimating) return;
+  this.isAnimating = true;
+  // 背景滑动
+  anime({ targets: this.DOM.bgs[currentPos],
+    translateY: direction === 'next' ? '-100%' : '100%' });
+  // 隐藏当前 → 显示下一个
+  this.words[current].hide(effects[current].hide)
+    .then(() => { this.current = newPos; });
+  this.words[newPos].show(effects[newPos].show)
+    .then(() => this.isAnimating = false);
+}`,
+      },
+    ],
+    concepts: [
+      {
+        name: "字母拆分",
+        nameEN: "Letter Splitting (Charming.js)",
+        analogy:
+          "把一个单词拆成一盒散装字母积木——每块积木可以独立移动、旋转、变色",
+        explanation:
+          "Charming.js 将文字节点拆分为独立的 <span> 元素，每个包含一个字符。这是实现逐字母动画的前提。类似工具有 Splitting.js（更现代，支持 CSS 变量）、GSAP SplitText（商业版）。拆分后可以用 CSS 变量 --char-index 或 JS delay 回调实现 stagger。",
+        whyItMatters:
+          "知道 Letter Splitting 后，你就能对 AI 说「用 Splitting.js 拆分文字，每个字母用 --char-index 做 stagger 延迟动画」——而不是说「让文字一个一个出现」。",
+      },
+      {
+        name: "粒子爆发效果",
+        nameEN: "Particle Burst / Confetti Effect",
+        analogy:
+          "像拉响彩带炮——大量小碎片从一个点向四周喷射、旋转、渐隐",
+        explanation:
+          "通过创建大量小型 SVG/DOM 元素，给每个元素随机的方向（translateX/Y）、旋转（rotate）、缩放（scale）和透明度衰减（opacity），模拟粒子爆发效果。关键是随机性——anime.random() 让每次爆发都不重复。CSS 版本可用 @property + animation 实现。",
+        whyItMatters:
+          "知道 Particle Burst 后，你就能对 AI 说「做一个 confetti burst 效果，30 个 SVG 形状从点击位置向四周随机喷射，easeOutExpo 缓动，700ms 渐隐」——精准描述粒子动画需求。",
+      },
+      {
+        name: "Anime.js 时间线",
+        nameEN: "Anime.js Timeline & Stagger",
+        analogy:
+          "乐队指挥的总谱——每个乐器（元素）在精确的时间点奏出自己的音符（动画）",
+        explanation:
+          "Anime.js 的 delay 回调 (target, index, total) => 值 让每个元素基于索引获得不同延迟，实现 stagger 效果。配合 easing 预设（easeOutElastic 弹性、easeOutExpo 急停、easeInOutExpo 对称缓动）控制运动质感。Promise 返回值可链式编排多段动画。",
+        whyItMatters:
+          "知道 Anime.js stagger 后，你就能对 AI 说「用 anime.js 做字母 stagger 动画，delay: i*40ms，easeOutElastic 弹性缓动，从底部 translateY 100% 到 0」——精确控制逐元素动画节奏。",
+      },
+      {
+        name: "SVG 内联形状",
+        nameEN: "Dynamic SVG Shape Creation",
+        analogy:
+          "用代码当画笔——在 JS 中动态创建圆形、矩形、多边形，像在画布上随手撒下彩色纸片",
+        explanation:
+          "通过 document.createElementNS(svgNS, 'circle') 动态创建 SVG 元素，设置 cx/cy/r（圆形）、points（多边形）等属性。fill/stroke 切换控制实心/描边风格。SVG 形状比 Canvas 粒子更易被 CSS/JS 动画库操控，且支持矢量缩放。",
+        whyItMatters:
+          "知道动态 SVG 创建后，你就能对 AI 说「用 createElementNS 动态生成 30 个随机 SVG 形状（circle/rect/polygon），描边模式，strokeWidth 3px」——精确描述装饰性图形生成需求。",
+      },
+    ],
+    applications: [
+      {
+        field: "品牌 Logo 动画",
+        examples:
+          "品牌名称字母逐个出现，配合品牌色彩的形状粒子爆发，增强记忆点",
+      },
+      {
+        field: "页面过渡标题",
+        examples:
+          "SPA 路由切换时标题文字的装饰性进场/退场动画",
+      },
+      {
+        field: "交互式贺卡/邀请函",
+        examples:
+          "点击或滚动触发文字的 confetti 爆发效果，增加惊喜感",
+      },
+      {
+        field: "游戏 UI 文字",
+        examples:
+          "关卡名称、得分数字的装饰性出场动画，配合音效增强反馈",
+      },
+    ],
+    keyInsight:
+      "**文字不只是信息载体，也可以是动画的舞台**。这个 demo 展示了 9 种截然不同的字母动画风格，但底层模式一致：**Letter Splitting**（拆分为独立单元）→ **Stagger Delay**（时序编排）→ **Particle Burst**（装饰性形状喷射）→ **Easing Curves**（运动质感）。掌握这个组合后，你可以对 AI 说「做一个 letter splitting + particle burst 效果，字母 easeOutElastic 弹入，同时 30 个 SVG circle 从字母位置 easeOutExpo 扩散」——精准复现任何装饰性文字动画。",
+  },
+
+  gradienttopography: {
+    id: "gradienttopography",
+    title: "Gradient Topography",
+    subtitle: "SVG 渐变地形形变菜单",
+    oneLiner:
+      "基于 Anime.js 的 SVG 路径形变 + 渐变图层动画——用有机 Blob 形态作为导航的视觉载体",
+    whatYouSee:
+      "屏幕上 6 组有机的渐变色斑块（**Blob / Organic Shape**）彼此层叠，像等高线地图的色块。每组斑块由 6 层不同透明度的 SVG path 构成，呈现出「渐变地形」的深度感。左侧是文字菜单，当你点击某个菜单项时，对应的斑块会**形变展开（Path Morphing）**到全屏，同时其他斑块缩小消失，内容区域滑入。关闭时斑块**收缩回**原始形态。整个过程由 **Anime.js** 驱动 SVG `d` 属性插值实现。",
+    pipeline: [
+      {
+        step: "01",
+        title: "SVG 双路径定义 (Dual-Path Data)",
+        description:
+          "每个 blob 的 <path> 元素同时存储两套路径数据：`d` 属性是初始的有机小形状，自定义属性 `pathdata:id` 是展开后的全屏形状。Anime.js 在两套路径之间做插值动画，就像橡皮泥从一个形状变成另一个形状。",
+        glsl: `<!-- 每个 path 有两套形状数据 -->
+<path
+  d="M 382.9,69.64 C..."         <!-- 初始：小 blob -->
+  pathdata:id="M 5153,15.13 C..." <!-- 展开：全屏覆盖 -->
+  fill="url(#gradient-1)"
+/>`,
+      },
+      {
+        step: "02",
+        title: "渐变图层叠加 (Gradient Layer Stack)",
+        description:
+          "每组 blob 包含 6 层 path，fill-opacity 从 0.1 递增到 0.6，填充同一个 linearGradient（如 #f19872 → #e86c9a）。多层半透明叠加产生丰富的色彩过渡，形成等高线地图般的「地形」质感。6 组 blob 各有不同的渐变色。",
+        glsl: `<!-- SVG 渐变定义 -->
+<linearGradient id="gradient-1" x1="0%" y1="0%" x2="100%" y2="100%">
+  <stop stop-color="#f19872"/>
+  <stop offset="1" stop-color="#e86c9a"/>
+</linearGradient>
+
+/* 6 层递增透明度 */
+path:nth-of-type(1) { fill-opacity: 0.1; }
+path:nth-of-type(6) { fill-opacity: 0.6; }`,
+      },
+      {
+        step: "03",
+        title: "Path Morphing 展开动画 (Anime.js Path Interpolation)",
+        description:
+          "点击菜单项时，Anime.js 将 path 的 `d` 属性从初始值动画到 `pathdata:id` 存储的展开值。1000ms 时长 + 自定义 cubic-bezier [0.2,1,0.1,1] 缓动，让形变有弹性的有机感。6 层 path 用 120ms 的 stagger 延迟依次展开，增加层次感。",
+        glsl: `// Blob 展开动画
+expand() {
+  return anime({
+    targets: this.DOM.paths,
+    duration: 1000,
+    delay: (t, i) => i * 120,
+    easing: [0.2, 1, 0.1, 1],  // 自定义弹性曲线
+    d: (t) => t.getAttribute('pathdata:id')  // 形变到展开形状
+  }).finished;
+}`,
+      },
+      {
+        step: "04",
+        title: "Charming.js 字母级文字动画 (Letter-Level Text Animation)",
+        description:
+          "菜单文字和内容标题用 Charming.js 拆分为单个 <span>。点击时菜单字母逐个淡出（stagger 延迟），内容标题字母逐个淡入。这种逐字母动画比整块文字淡入淡出精致得多，配合 blob 形变创造协调的叙事节奏。",
+        glsl: `// 字母拆分
+charming(menuItem);
+const letters = menuItem.querySelectorAll('span');
+
+// 逐字母淡出
+anime({
+  targets: letters,
+  duration: 300,
+  delay: (t, i) => i * 30,
+  easing: 'easeOutQuad',
+  opacity: 0,
+  translateY: '-50%'
+});`,
+      },
+      {
+        step: "05",
+        title: "交互状态编排 (Interaction State Choreography)",
+        description:
+          "整个交互分三阶段：intro（初始进场：blob scale 0.2→1 + 菜单淡入）→ open（点击展开：目标 blob expand + 其他 blob hide + 内容滑入）→ close（关闭收缩：blob collapse + 其他 blob show + 菜单恢复）。用 Promise 链式控制动画顺序，pointer-events 管理防止动画期间重复触发。",
+        glsl: `// 打开流程
+async open(index) {
+  this.isAnimating = true;
+  hideMenu();                     // 1. 菜单淡出
+  await blobs[index].expand();    // 2. 目标 blob 展开
+  showContent(index);             // 3. 内容淡入
+  otherBlobs.forEach(b => b.hide()); // 4. 其他缩小
+  this.isAnimating = false;
+}`,
+      },
+    ],
+    concepts: [
+      {
+        name: "SVG Path Morphing",
+        nameEN: "SVG Path Morphing / Shape Interpolation",
+        analogy:
+          "像橡皮泥变形——一个形状平滑过渡到另一个形状，中间的每一帧都是有效的形状",
+        explanation:
+          "通过在两组 SVG path `d` 属性值之间做插值，实现形状的平滑变形。关键要求：两组路径的控制点数量必须匹配（相同数量的 M/C/L 指令）。Anime.js 内置了 SVG path 插值能力，也可以用 flubber、GSAP MorphSVG 等专用库。",
+        whyItMatters:
+          "知道 SVG Path Morphing 后，你就能对 AI 说「用 anime.js 做 SVG path morphing，从圆形 blob 形变到全屏矩形，两组 path 控制点数量匹配」——而不是说「让那个形状变大变成方的」。",
+      },
+      {
+        name: "Organic Blob Shape",
+        nameEN: "Organic Blob / Soft Body Shape",
+        analogy:
+          "自然界的水滴、云朵、变形虫——没有直线和尖角，边缘是流动的曲线",
+        explanation:
+          "用 SVG 的 cubic Bézier 曲线（C 指令）绘制的不规则有机形状。关键特征：无直线段、曲率连续、视觉上柔软。可以手动设计或用算法生成（如 blob maker 工具）。配合渐变填充和多层叠加，可以创造丰富的有机质感。",
+        whyItMatters:
+          "知道 Organic Blob 后，你就能对 AI 说「生成一个 6 控制点的 organic blob SVG path，曲率连续，用 linearGradient 填充」——精准描述有机形状需求。",
+      },
+      {
+        name: "渐变地形叠加",
+        nameEN: "Gradient Topography / Contour Layer Stack",
+        analogy:
+          "等高线地图的彩色版——每条等高线是一层半透明的渐变色，叠在一起形成地形的立体感",
+        explanation:
+          "多层相似但略有偏移的 SVG path，每层使用递增的 fill-opacity（0.1→0.6），同一 linearGradient 填充。叠加后颜色在中心最浓、边缘最淡，产生有机的深度感。这种技巧也叫 Contour Stacking 或 Topographic Layers。",
+        whyItMatters:
+          "知道 Gradient Topography 后，你就能对 AI 说「做 6 层 SVG path 叠加，fill-opacity 从 0.1 到 0.6 递增，同一个 linearGradient 填充，形成等高线地形效果」——精确描述这种视觉层次。",
+      },
+      {
+        name: "自定义 Bézier 缓动",
+        nameEN: "Custom Cubic Bézier Easing",
+        analogy:
+          "不是标准的 ease-in-out，而是定制的运动曲线——开始慢、中间快冲过头、最后轻轻回弹",
+        explanation:
+          "Anime.js 支持 [x1, y1, x2, y2] 格式的自定义 cubic-bezier 缓动。[0.2, 1, 0.1, 1] 的 y 值达到 1 表示快速到达终点并有微妙过冲，创造有弹性的有机运动感。这比 CSS 的 ease-in-out 更有表现力，适合模拟自然界的弹性运动。",
+        whyItMatters:
+          "知道自定义 Bézier 缓动后，你就能对 AI 说「用 cubic-bezier(0.2, 1, 0.1, 1) 做弹性缓动，让 blob 形变有有机的过冲感」——精确控制动画的运动质感。",
+      },
+    ],
+    applications: [
+      {
+        field: "创意导航菜单",
+        examples:
+          "用有机形状替代传统矩形导航，点击时形变展开为内容区域",
+      },
+      {
+        field: "品牌视觉识别",
+        examples:
+          "品牌色彩的渐变 blob 作为视觉锚点，形变动画增强品牌记忆",
+      },
+      {
+        field: "数据可视化过渡",
+        examples:
+          "图表元素之间用 path morphing 平滑过渡，比硬切更有连续感",
+      },
+      {
+        field: "艺术/画廊网站",
+        examples:
+          "用 blob 形态展示作品缩略图，点击形变到全屏查看",
+      },
+    ],
+    keyInsight:
+      "**形状本身可以是交互的载体，而不仅仅是装饰**。这个 demo 把有机 blob 从背景装饰变成了导航系统的核心——点击菜单时 blob 形变展开成内容容器，形状就是按钮、也是过渡动画、也是内容背景。核心术语链：**SVG Path Morphing**（路径插值形变）→ **Organic Blob**（有机曲线形状）→ **Gradient Topography**（渐变等高线叠加）→ **Custom Bézier Easing**（弹性运动曲线）。掌握这些后你可以对 AI 说「做一个 organic blob 导航，6 层 gradient topography 叠加，点击时 path morphing 到全屏，easing [0.2,1,0.1,1]」。",
+  },
+
+  draggablegrid: {
+    id: "draggablegrid",
+    title: "Draggable Grid",
+    subtitle: "可拖拽产品网格",
+    oneLiner:
+      "基于 GSAP Draggable + Flip + SplitText 的可拖拽产品网格——拖拽浏览 + 点击展开的沉浸式产品展示",
+    whatYouSee:
+      "一个超出视口的大型产品网格，10 列 × 5 行的花瓶图片铺满画布。你可以用鼠标**拖拽（Drag）**整个网格在视口中滑动，也可以用滚轮平移。拖拽有**惯性（Inertia）**——松手后网格会顺着拖拽方向继续滑行一段。离开视口的产品会**淡出缩小**，进入视口时**淡入放大**。点击任意产品，网格向左滑开，产品图片用 **GSAP Flip** 动画飞到右侧详情面板的缩略图位置，标题和描述文字用 **SplitText** 逐字/逐行滑入。点击关闭时一切反向还原。",
+    pipeline: [
+      {
+        step: "01",
+        title: "初始进场动画 (Intro Stagger Animation)",
+        description:
+          "页面加载后，网格容器从 scale(0.5) 放大到 1，同时所有产品卡片以 random stagger 的方式从 opacity:0 + scale:0.5 逐个出现。random stagger 让进场没有固定方向，感觉像「散落的卡片逐个翻开」。imagesLoaded 确保图片加载完毕后才触发动画。",
+        glsl: `timeline.set(this.products, { scale: 0.5, opacity: 0 })
+timeline.to(this.products, {
+  scale: 1, opacity: 1,
+  duration: 0.6,
+  ease: "power3.out",
+  stagger: { amount: 1.2, from: "random" }  // 随机顺序进场
+})
+timeline.to(this.dom, {
+  scale: 1, duration: 1.2, ease: "power3.inOut"
+})`,
+      },
+      {
+        step: "02",
+        title: "Draggable 拖拽 + 惯性 (GSAP Draggable + Inertia)",
+        description:
+          "用 GSAP Draggable 让整个网格可拖拽，type:'x,y' 支持双向拖拽。bounds 限制拖拽范围不超出网格边界太多。inertia: true 开启物理惯性——松手后根据拖拽速度继续滑行。edgeResistance: 0.9 让边界有弹性阻力感。滚轮事件也映射到网格位移。",
+        glsl: `Draggable.create(this.grid, {
+  type: "x,y",
+  bounds: {
+    minX: -(gridWidth - windowWidth) - 200,
+    maxX: 200,
+    minY: -(gridHeight - windowHeight) - 100,
+    maxY: 100
+  },
+  inertia: true,           // 物理惯性
+  edgeResistance: 0.9,     // 边界弹性阻力
+  allowEventDefault: true,
+})`,
+      },
+      {
+        step: "03",
+        title: "IntersectionObserver 视口感知 (Viewport Awareness)",
+        description:
+          "用 IntersectionObserver 监测每个产品卡片是否在视口内。进入视口时 scale:1 + opacity:1 淡入，离开视口时 scale:0.5 + opacity:0 淡出。threshold: 0.1 表示只要 10% 可见就触发。这给拖拽浏览增加了「聚光灯」效果——只有视野内的产品是清晰可见的。",
+        glsl: `const observer = new IntersectionObserver((entries) => {
+  entries.forEach((entry) => {
+    if (entry.isIntersecting) {
+      gsap.to(entry.target, {
+        scale: 1, opacity: 1, duration: 0.5
+      })
+    } else {
+      gsap.to(entry.target, {
+        opacity: 0, scale: 0.5, duration: 0.5
+      })
+    }
+  })
+}, { threshold: 0.1 })`,
+      },
+      {
+        step: "04",
+        title: "Flip 布局动画 (GSAP Flip Layout Transition)",
+        description:
+          "点击产品时，Flip.getState() 记录当前位置，然后用 DOM 操作将产品元素移到详情面板的缩略图容器中。Flip.from() 自动计算起终位置差异并动画过渡。产品图片从网格中「飞」到右侧详情面板，关闭时再「飞」回原位。",
+        glsl: `flipProduct(product) {
+  const state = Flip.getState(product)  // 记录当前状态
+  this.detailsThumb.appendChild(product) // DOM 移动到新位置
+  Flip.from(state, {
+    absolute: true,
+    duration: 1.2,
+    ease: "power3.inOut",
+  })  // 自动从旧位置动画到新位置
+}`,
+      },
+      {
+        step: "05",
+        title: "SplitText 文字动画 (Character & Line Reveal)",
+        description:
+          "用 GSAP SplitText 将标题拆分为 chars（逐字符），描述文字拆分为 lines（逐行）。mask: 'lines' 让每行有独立的 overflow:hidden 遮罩，字符/行从 translateY:100% 滑入可见区域。关闭时反向滑出（from:'end' 让末尾的字符先消失）。",
+        glsl: `// 拆分文字
+const splitTitles = new SplitText(titles, {
+  type: "lines, chars", mask: "lines"
+})
+// 标题字符逐个滑入
+gsap.to(title.querySelectorAll(".char"), {
+  y: 0, duration: 1.1, delay: .4,
+  ease: "power3.inOut", stagger: 0.025
+})
+// 描述逐行滑入
+gsap.to(text.querySelectorAll(".line"), {
+  y: 0, duration: 1.1, stagger: .05
+})`,
+      },
+    ],
+    concepts: [
+      {
+        name: "GSAP Draggable",
+        nameEN: "GSAP Draggable Plugin",
+        analogy:
+          "把网页元素变成触屏上的照片——可以用手指拖来拖去，松手后还会顺着惯性滑行",
+        explanation:
+          "GSAP Draggable 插件让任何 DOM 元素可拖拽，支持 x/y/rotation 等模式。配合 InertiaPlugin 实现物理惯性（基于释放速度计算减速滑行距离）。bounds 限制范围，edgeResistance 控制边界弹性。比原生 drag 事件更流畅、更可控。",
+        whyItMatters:
+          "知道 GSAP Draggable 后，你就能对 AI 说「用 GSAP Draggable 做一个可拖拽的画布，type:'x,y'，inertia: true，bounds 限制在容器内，edgeResistance 0.8」——精确描述拖拽交互需求。",
+      },
+      {
+        name: "GSAP Flip",
+        nameEN: "GSAP Flip Plugin (First Last Invert Play)",
+        analogy:
+          "记住元素的「旧位置」，把它移到「新位置」，然后自动动画从旧到新——像魔术师把卡片瞬移后再慢放回放",
+        explanation:
+          "FLIP 是 First-Last-Invert-Play 的缩写。Flip.getState() 记录元素的当前位置/尺寸，DOM 操作将其移到新容器后，Flip.from() 自动计算差异并生成补间动画。这让任何 DOM 结构变化都能有流畅过渡，是 layout animation 的终极方案。",
+        whyItMatters:
+          "知道 GSAP Flip 后，你就能对 AI 说「用 Flip.getState 记录状态，appendChild 移动元素，Flip.from 做布局过渡动画，duration 1.2s」——精准描述布局动画需求。",
+      },
+      {
+        name: "SplitText 文字拆分",
+        nameEN: "GSAP SplitText",
+        analogy:
+          "把一段文字切成单个字符或单行的「瓷砖」，每块瓷砖可以独立动画——翻转、滑入、旋转",
+        explanation:
+          "GSAP SplitText 将文字节点拆分为 chars（字符）、words（单词）、lines（行）三种粒度的 <div>/<span>。配合 mask:'lines' 自动为每行添加 overflow:hidden 遮罩，实现从下方滑入的「百叶窗」揭示效果。比 Charming.js/Splitting.js 更强大。",
+        whyItMatters:
+          "知道 SplitText 后，你就能对 AI 说「用 SplitText 拆分为 lines+chars，mask:'lines'，chars 逐个 stagger 0.025s 从 y:100% 滑入」——精确控制文字揭示动画。",
+      },
+      {
+        name: "IntersectionObserver 视口感知",
+        nameEN: "IntersectionObserver Viewport Detection",
+        analogy:
+          "在视口边缘安装一个「感应门」——元素进入视口时自动亮灯（淡入），离开时自动熄灯（淡出）",
+        explanation:
+          "浏览器原生 API，高效监测元素与视口的交叉状态。threshold: 0.1 表示 10% 可见即触发。比 scroll 事件监听更高效（浏览器内部优化），是实现 lazy loading、scroll reveal、viewport-aware animation 的标准方案。",
+        whyItMatters:
+          "知道 IntersectionObserver 后，你就能对 AI 说「用 IntersectionObserver threshold:0.1 监测元素可见性，进入视口时 gsap.to scale:1，离开时 scale:0.5」——精准描述视口感知动画。",
+      },
+    ],
+    applications: [
+      {
+        field: "电商产品浏览",
+        examples:
+          "用可拖拽的大型网格替代分页列表，沉浸式浏览产品目录",
+      },
+      {
+        field: "作品集/画廊",
+        examples:
+          "摄影作品或设计作品用拖拽网格展示，点击查看大图 + 详情",
+      },
+      {
+        field: "地图式导航",
+        examples:
+          "信息密度大的仪表盘用拖拽平移替代传统滚动，IntersectionObserver 优化性能",
+      },
+      {
+        field: "Mood Board / 灵感墙",
+        examples:
+          "设计师的灵感素材墙，可拖拽浏览 + 点击展开详情",
+      },
+    ],
+    keyInsight:
+      "**拖拽不只是移动，是空间探索的隐喻**。这个 demo 把传统的分页/滚动浏览转变为 2D 空间的自由探索——用户拖拽网格像在一张大桌子上推动照片。核心术语链：**GSAP Draggable + Inertia**（物理拖拽 + 惯性滑行）→ **IntersectionObserver**（视口感知 + 性能优化）→ **GSAP Flip**（DOM 结构变化 → 布局过渡动画）→ **SplitText**（文字拆分 → 逐字/逐行揭示）。掌握这四个工具的组合，你就能对 AI 说「做一个可拖拽的产品网格，inertia 惯性，IntersectionObserver 视口内淡入，点击时 Flip 到详情面板，SplitText 逐行揭示描述」。",
   },
 };

@@ -104,6 +104,67 @@ Shader 详细集成步骤另见 `docs/ADD-SHADER.md`。
 
 ---
 
+## 集成外部项目（GitHub 仓库 / 代码包）
+
+当用户提供一个完整的外部项目（GitHub 仓库、下载的代码包等）要求集成时，**必须遵循以下原则**：
+
+### 核心原则：原版代码零改写
+
+> **不要改写原版代码。不要用 CDN 替换本地依赖。不要用 React 重写。不要用 srcdoc 拼接。**
+> 原版怎么跑的，就原封不动地让它跑。
+
+### 标准流程
+
+1. **完整复制原版项目到 `public/{name}/`**
+   ```
+   public/{name}/
+   ├── index.html          # 原版入口
+   ├── css/                # 原版样式
+   ├── js/                 # 原版脚本（含依赖库的 min.js）
+   └── img/ 或 assets/     # 原版资源
+   ```
+   - 保持原版目录结构不变
+   - 所有依赖（GSAP、Lenis、Three.js 等）使用原版自带的本地文件，不替换为 CDN
+   - 图片、字体等资源路径不修改
+
+2. **创建极简 Canvas 组件** (`src/demos/{name}/{Name}Canvas.tsx`)
+   ```tsx
+   import React from "react";
+
+   export const XxxCanvas: React.FC = () => (
+     <div className="w-full h-full relative">
+       <iframe
+         src="/{name}/index.html"
+         className="w-full h-full border-0"
+         title="Xxx Demo"
+       />
+     </div>
+   );
+   ```
+   - 用 `src` 属性指向 `public/` 下的原版 HTML，**不用 `srcdoc`**
+   - 组件只做一件事：提供 iframe 容器
+
+3. **注册到项目**（同「向已有分类添加条目」流程）
+   - `demoTypes.ts` 添加类型 + 数据
+   - `App.tsx` 添加 import + header 信息 + 渲染分支
+   - `demoGuides.ts` 添加技术解读
+
+### 禁止事项
+
+| 禁止 | 原因 |
+|------|------|
+| 用 CDN 链接替换原版本地 JS 文件 | 可能加载失败、版本不一致 |
+| 用 `srcdoc` 拼接 HTML/CSS/JS 字符串 | 资源路径解析问题、脚本加载顺序问题 |
+| 用 React 重写原版 HTML + 手动调 GSAP/ScrollTrigger | 行为差异大、调试成本高、容易丢失效果 |
+| npm install 原版依赖然后在 React 中 import | 原版代码依赖全局变量和 DOM 操作，不适合 React 生命周期 |
+| 修改原版 CSS/JS 代码 | 破坏原版效果的完整性 |
+
+### 已有案例
+
+- `public/scrollformations/` — OnScrollLayoutFormations (Codrops)，9 种滚动驱动网格变阵
+
+---
+
 ## 技术解读内容编写规范
 
 每个条目都必须有技术解读（TechModal）。**不同分类的侧重点不同：**

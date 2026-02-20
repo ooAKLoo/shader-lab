@@ -10,23 +10,20 @@ const CARDS = [
     title: "Soul Shatter",
     description:
       "Each opponent sacrifices a creature or planeswalker with the greatest mana value among creatures and planeswalkers they control.",
-    image:
-      "https://cards.scryfall.io/art_crop/front/a/b/abdd053f-87ea-4cc8-b3df-a0c69c798d57.jpg?1678736299",
+    image: "/frosted/soul-shatter.jpg",
   },
   {
     category: "Instant",
     title: "Finishing Blow",
     description: "Destroy target creature or planeswalker.",
-    image:
-      "https://cards.scryfall.io/art_crop/front/2/b/2b85a552-2119-4d9c-b7c1-c09c2d9f2f38.jpg?1594736130",
+    image: "/frosted/finishing-blow.jpg",
   },
   {
     category: "Creature",
     title: "Essence Channeler",
     description:
       "As long as you've lost life this turn, this creature has flying and vigilance.",
-    image:
-      "https://cards.scryfall.io/art_crop/front/b/b/bbd5c86a-0991-4322-a0a2-48424c4be2af.jpg?1721427902",
+    image: "/frosted/essence-channeler.jpg",
   },
 ];
 

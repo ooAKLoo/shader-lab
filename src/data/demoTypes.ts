@@ -1,4 +1,4 @@
-export type DemoType = "gooey" | "parallax" | "frosted" | "videotext";
+export type DemoType = "gooey" | "parallax" | "frosted" | "scrollformations" | "letteranimations" | "gradienttopography" | "draggablegrid";
 
 export interface DemoEntry {
   id: DemoType;
@@ -31,10 +31,31 @@ export const DEMOS: DemoEntry[] = [
     url: "https://codepen.io/lessthanthree/pen/LENwGyZ",
   },
   {
-    id: "videotext",
-    name: "Video Text",
-    description: "SVG filter video text fill",
-    author: "thebabydino",
-    url: "https://codepen.io/thebabydino/pen/RNBwBYe",
+    id: "scrollformations",
+    name: "Scroll Formations",
+    description: "Scroll-driven grid layout animations",
+    author: "codrops",
+    url: "https://github.com/codrops/OnScrollLayoutFormations",
+  },
+  {
+    id: "letteranimations",
+    name: "Letter Animations",
+    description: "SVG shape decorative letter effects",
+    author: "codrops",
+    url: "https://github.com/codrops/DecorativeLetterAnimations",
+  },
+  {
+    id: "gradienttopography",
+    name: "Gradient Topography",
+    description: "SVG blob morphing gradient menu",
+    author: "codrops",
+    url: "https://github.com/codrops/GradientTopographyAnimation",
+  },
+  {
+    id: "draggablegrid",
+    name: "Draggable Grid",
+    description: "GSAP Draggable + Flip product grid",
+    author: "joffreysp",
+    url: "https://github.com/joffreysp/draggable-grid",
   },
 ];

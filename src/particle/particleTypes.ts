@@ -1,4 +1,4 @@
-export type ParticleType = "fission" | "metaball" | "sdfmorph" | "lettermorph" | "liquidfill" | "gooeyfx" | "eyetrack" | "liquidtrans" | "dotgrid" | "dotgrid2" | "columnfield" | "radialflow" | "energyflow" | "sankeyflow";
+export type ParticleType = "fission" | "metaball" | "sdfmorph" | "lettermorph" | "liquidfill" | "gooeyfx" | "eyetrack" | "liquidtrans" | "dotgrid" | "dotgrid2" | "columnfield" | "radialflow" | "energyflow" | "sankeyflow" | "starfield";
 
 export interface ParticleEntry {
   id: ParticleType;
@@ -76,5 +76,10 @@ export const PARTICLES: ParticleEntry[] = [
     id: "sankeyflow",
     name: "Sankey Flow",
     description: "Sankey-style radial energy flow with cubic Bezier branches and offscreen glow",
+  },
+  {
+    id: "starfield",
+    name: "Starfield",
+    description: "Three.js point cloud starfield with GLSL z-wrap and UnrealBloom post-processing",
   },
 ];

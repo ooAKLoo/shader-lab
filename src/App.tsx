@@ -43,7 +43,10 @@ import { GooeyCanvas, type GooeyParams } from "./demos/gooey/GooeyCanvas";
 import { GooeyControls } from "./demos/gooey/GooeyControls";
 import { ParallaxCanvas } from "./demos/parallax/ParallaxCanvas";
 import { FrostedCanvas } from "./demos/frosted/FrostedCanvas";
-import { VideotextCanvas } from "./demos/videotext/VideotextCanvas";
+import { ScrollformationsCanvas } from "./demos/scrollformations/ScrollformationsCanvas";
+import { LetteranimationsCanvas } from "./demos/letteranimations/LetteranimationsCanvas";
+import { GradienttopographyCanvas } from "./demos/gradienttopography/GradienttopographyCanvas";
+import { DraggablegridCanvas } from "./demos/draggablegrid/DraggablegridCanvas";
 import { DemoStrip } from "./components/DemoStrip";
 import type { DemoType } from "./data/demoTypes";
 import { EchotraceCanvas } from "./playground/echotrace/EchotraceCanvas";
@@ -135,6 +138,10 @@ import { SankeyflowCanvas } from "./particle/sankeyflow/SankeyflowCanvas";
 import { SankeyflowControls } from "./particle/sankeyflow/SankeyflowControls";
 import type { SankeyflowParams } from "./particle/sankeyflow/types";
 import { DEFAULT_CONFIG as DEFAULT_SANKEYFLOW } from "./particle/sankeyflow/constants";
+import { StarfieldCanvas } from "./particle/starfield/StarfieldCanvas";
+import { StarfieldControls } from "./particle/starfield/StarfieldControls";
+import type { StarfieldParams } from "./particle/starfield/types";
+import { DEFAULT_CONFIG as DEFAULT_STARFIELD } from "./particle/starfield/constants";
 import type { ParticleType } from "./particle/particleTypes";
 import { PARTICLES } from "./particle/particleTypes";
 import { ParticleStrip } from "./components/ParticleStrip";
@@ -398,6 +405,7 @@ const App: React.FC = () => {
   const [radialflowParams, setRadialflowParams] = useState<RadialflowParams>(DEFAULT_RADIALFLOW);
   const [energyflowParams, setEnergyflowParams] = useState<EnergyflowParams>(DEFAULT_ENERGYFLOW);
   const [sankeyflowParams, setSankeyflowParams] = useState<SankeyflowParams>(DEFAULT_SANKEYFLOW);
+  const [starfieldParams, setStarfieldParams] = useState<StarfieldParams>(DEFAULT_STARFIELD);
   const [columnfieldParams, setColumnfieldParams] = useState<ColumnFieldParams>(DEFAULT_COLUMNFIELD);
   const columnfieldAnalysisRef = useRef<Dotgrid2AudioAnalysis>({
     bass: 0, mud: 0, mid: 0, high: 0, energy: 0, onset: 0,
@@ -547,19 +555,19 @@ const App: React.FC = () => {
             {/* Demos Header */}
             <div className="flex items-center gap-3 px-5 py-3 flex-shrink-0">
               <span className="text-[13px] font-medium text-neutral-700">
-                {activeDemo === "gooey" ? "Gooey Overlay" : activeDemo === "parallax" ? "Parallax Scroll" : activeDemo === "frosted" ? "Frosted Glass" : "Video Text"}
+                {activeDemo === "gooey" ? "Gooey Overlay" : activeDemo === "parallax" ? "Parallax Scroll" : activeDemo === "frosted" ? "Frosted Glass" : activeDemo === "scrollformations" ? "Scroll Formations" : activeDemo === "letteranimations" ? "Letter Animations" : activeDemo === "gradienttopography" ? "Gradient Topography" : "Draggable Grid"}
               </span>
               <span className="text-[9px] px-1.5 py-0.5 rounded bg-neutral-100 text-neutral-400">
-                {activeDemo === "gooey" ? "Simplex Noise + Scroll-Driven Animation" : activeDemo === "parallax" ? "SVG + GSAP ScrollTrigger" : activeDemo === "frosted" ? "CSS backdrop-filter + mask-image" : "SVG feComponentTransfer + background-clip: text"}
+                {activeDemo === "gooey" ? "Simplex Noise + Scroll-Driven Animation" : activeDemo === "parallax" ? "SVG + GSAP ScrollTrigger" : activeDemo === "frosted" ? "CSS backdrop-filter + mask-image" : activeDemo === "scrollformations" ? "GSAP ScrollTrigger + Lenis + 3D Grid Transforms" : activeDemo === "letteranimations" ? "Anime.js + Charming.js + SVG Shape Animation" : activeDemo === "gradienttopography" ? "Anime.js + SVG Blob Morphing + Gradient Layers" : "GSAP Draggable + Flip + SplitText"}
               </span>
               <div className="flex-1" />
               <a
-                href={activeDemo === "gooey" ? "https://codepen.io/ksenia-k/pen/NWmMxLg" : activeDemo === "parallax" ? "https://codepen.io/isladjan/pen/abdyPBw" : activeDemo === "frosted" ? "https://codepen.io/lessthanthree/pen/LENwGyZ" : "https://codepen.io/thebabydino/pen/RNBwBYe"}
+                href={activeDemo === "gooey" ? "https://codepen.io/ksenia-k/pen/NWmMxLg" : activeDemo === "parallax" ? "https://codepen.io/isladjan/pen/abdyPBw" : activeDemo === "frosted" ? "https://codepen.io/lessthanthree/pen/LENwGyZ" : activeDemo === "scrollformations" ? "https://github.com/codrops/OnScrollLayoutFormations" : activeDemo === "letteranimations" ? "https://github.com/codrops/DecorativeLetterAnimations" : activeDemo === "gradienttopography" ? "https://github.com/codrops/GradientTopographyAnimation" : "https://github.com/joffreysp/draggable-grid"}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="text-[8px] text-neutral-400 hover:text-neutral-600 transition-colors"
               >
-                by {activeDemo === "gooey" ? "ksenia-k" : activeDemo === "parallax" ? "isladjan" : activeDemo === "frosted" ? "lessthanthree" : "thebabydino"} · CodePen
+                by {activeDemo === "gooey" ? "ksenia-k" : activeDemo === "parallax" ? "isladjan" : activeDemo === "frosted" ? "lessthanthree" : activeDemo === "draggablegrid" ? "joffreysp" : "codrops"} · {activeDemo === "scrollformations" || activeDemo === "letteranimations" || activeDemo === "gradienttopography" || activeDemo === "draggablegrid" ? "GitHub" : "CodePen"}
               </a>
 
               {/* Tech Guide button */}
@@ -607,11 +615,32 @@ const App: React.FC = () => {
                     <FrostedCanvas />
                   </div>
                 </div>
-              ) : activeDemo === "videotext" ? (
-                /* Video Text Demo - Full Width */
+              ) : activeDemo === "scrollformations" ? (
+                /* Scroll Formations Demo - Full Width */
                 <div className="flex-1 flex flex-col min-h-0">
-                  <div className="bg-neutral-800 rounded-2xl flex-1 overflow-hidden">
-                    <VideotextCanvas />
+                  <div className="bg-[#0e0d0e] rounded-2xl flex-1 overflow-hidden">
+                    <ScrollformationsCanvas />
+                  </div>
+                </div>
+              ) : activeDemo === "letteranimations" ? (
+                /* Letter Animations Demo - Full Width */
+                <div className="flex-1 flex flex-col min-h-0">
+                  <div className="bg-[#1a1a2e] rounded-2xl flex-1 overflow-hidden">
+                    <LetteranimationsCanvas />
+                  </div>
+                </div>
+              ) : activeDemo === "gradienttopography" ? (
+                /* Gradient Topography Demo - Full Width */
+                <div className="flex-1 flex flex-col min-h-0">
+                  <div className="bg-black rounded-2xl flex-1 overflow-hidden">
+                    <GradienttopographyCanvas />
+                  </div>
+                </div>
+              ) : activeDemo === "draggablegrid" ? (
+                /* Draggable Grid Demo - Full Width */
+                <div className="flex-1 flex flex-col min-h-0">
+                  <div className="bg-white rounded-2xl flex-1 overflow-hidden">
+                    <DraggablegridCanvas />
                   </div>
                 </div>
               ) : (
@@ -757,6 +786,7 @@ const App: React.FC = () => {
                   : activeParticle === "radialflow" ? "Radial Flow"
                   : activeParticle === "energyflow" ? "Energy Flow"
                   : activeParticle === "sankeyflow" ? "Sankey Flow"
+                  : activeParticle === "starfield" ? "Starfield"
                   : "Dot Grid"}
               </span>
               <span className="text-[9px] px-1.5 py-0.5 rounded bg-neutral-100 text-neutral-400">
@@ -772,6 +802,7 @@ const App: React.FC = () => {
                   : activeParticle === "radialflow" ? "Canvas 2D Bezier Particle Flow + Radial Energy Streams"
                   : activeParticle === "energyflow" ? "Multi-Stream Bezier Convergence + Screen Blending Glow"
                   : activeParticle === "sankeyflow" ? "Cubic Bezier Sankey Branches + Offscreen Glow Compositing"
+                  : activeParticle === "starfield" ? "Three.js Points + GLSL Z-Wrap + UnrealBloom Post-Processing"
                   : "Canvas 2D Dot-to-Grid Morphing + Staggered Easing"}
               </span>
               <div className="flex-1" />
@@ -813,6 +844,7 @@ const App: React.FC = () => {
                   {activeParticle === "radialflow" && <RadialflowCanvas params={radialflowParams} />}
                   {activeParticle === "energyflow" && <EnergyflowCanvas params={energyflowParams} />}
                   {activeParticle === "sankeyflow" && <SankeyflowCanvas params={sankeyflowParams} />}
+                  {activeParticle === "starfield" && <StarfieldCanvas params={starfieldParams} />}
                 </div>
               </div>
 
@@ -880,6 +912,9 @@ const App: React.FC = () => {
                     )}
                     {activeParticle === "sankeyflow" && (
                       <SankeyflowControls params={sankeyflowParams} onChange={setSankeyflowParams} />
+                    )}
+                    {activeParticle === "starfield" && (
+                      <StarfieldControls params={starfieldParams} onChange={setStarfieldParams} />
                     )}
                   </div>
                 </div>
