@@ -1366,4 +1366,434 @@ for (let c = 0; c < cols; c++) {
     keyInsight:
       "**点阵→网格变形的本质是「交错编排 + 单粒子形变」**。数百个圆点不是各做各的动画——它们共享一个全局进度条，每个点根据「离中心的距离」获得不同的延迟偏移，形成涟漪般的传播波。形变阶段，每个圆点用同一个 morphT 参数同时驱动半径缩小和臂长增长，实现 circle→cross 的连续变形。核心术语链：**Staggered Animation**（交错编排）→ **Easing Functions**（缓动曲线）→ **Shape Morphing**（形状变形）→ **Canvas 2D Immediate Mode**（即时渲染）。记住：**最自然的群体动画不是「同时开始」而是「依次启动」——一个简单的距离延迟就能把机械的全体运动变成有机的传播波浪**。",
   },
+  glassturbine: {
+    id: "glassturbine",
+    title: "Glass Turbine",
+    subtitle: "玻璃涡轮叶片旋转拖影效果",
+    oneLiner:
+      "基于 Canvas 2D Trail Fade + Additive Blending 的玻璃涡轮叶片效果——用每帧半透明覆盖实现自然拖影衰减，配合 lighter 混合模式产生光叠加的玻璃质感",
+    whatYouSee:
+      "你看到的是一个缓慢旋转的圆形涡轮，由几片半透明的弧形叶片组成，叶片后面拖着柔和的渐变尾迹。叶片重叠的区域会自然变亮，中心有一个微微发光的高光点。这种效果叫 **Trail Fade（拖影衰减）**——不是每帧清空画布重画，而是每帧叠一层半透明背景色，让旧画面慢慢淡出。配合 **Additive Blending（加法混合）**，重叠区域的颜色值相加，自然产生发光的 **Glassmorphism（玻璃拟态）** 质感。",
+    pipeline: [
+      {
+        step: "01",
+        title: "拖影衰减层 (Trail Fade Layer)",
+        description:
+          "每帧不清空画布，而是绘制一层 rgba(bgColor, trailFade) 的半透明矩形覆盖整个画布。trailFade 值越小（如 0.03），旧帧消失得越慢，拖影就越长。这是所有 trail 效果的核心技巧——用半透明覆盖替代全清空。",
+        glsl: `// 每帧开头：不用 clearRect，而是叠半透明背景
+ctx.fillStyle = \`rgba(\${bgR},\${bgG},\${bgB},\${trailFade})\`;
+ctx.fillRect(0, 0, w, h);
+// trailFade=0.03 → 旧帧需要约100帧才能完全消失`,
+      },
+      {
+        step: "02",
+        title: "圆弧叶片构造 (Arc Segment Path)",
+        description:
+          "每个叶片是一个圆弧扇形（Arc Segment）：外弧 + 内弧围成的环形区域。用 ctx.arc() 画外弧，再用 ctx.arc(counterclockwise) 画内弧，closePath 闭合。叶片均匀分布在 360° 上，每个占 bladeArc 度。",
+        glsl: `const gapAngle = (2 * Math.PI) / bladeCount;
+for (let i = 0; i < bladeCount; i++) {
+  const start = rotation + i * gapAngle;
+  const end = start + bladeArcRad;
+  ctx.beginPath();
+  ctx.arc(cx, cy, outerR, start, end);       // 外弧
+  ctx.arc(cx, cy, innerR, end, start, true);  // 内弧（逆时针）
+  ctx.closePath();
+  ctx.fill();
+}`,
+      },
+      {
+        step: "03",
+        title: "径向渐变玻璃质感 (Radial Gradient Glass)",
+        description:
+          "每个叶片的填充不是纯色，而是从中心到边缘的径向渐变：中心用 highlightColor（亮色），过渡到 bladeColor（主色），边缘渐变到透明。这模拟了光线穿过玻璃时中心更亮、边缘渐暗的效果。",
+        glsl: `const grad = ctx.createRadialGradient(cx, cy, innerR, cx, cy, outerR);
+grad.addColorStop(0, \`rgba(highlight, \${opacity * 0.8})\`);
+grad.addColorStop(0.3, \`rgba(blade, \${opacity})\`);
+grad.addColorStop(0.7, \`rgba(blade, \${opacity * 0.6})\`);
+grad.addColorStop(1, \`rgba(blade, 0)\`);  // 边缘完全透明`,
+      },
+      {
+        step: "04",
+        title: "加法混合发光 (Additive Blending Glow)",
+        description:
+          "将 globalCompositeOperation 设为 'lighter'（即 Additive Blending）。在这种模式下，两个颜色重叠时 RGB 值相加——两个半透明紫色叠在一起就变成更亮的紫色，而非更暗。这就是为什么叶片交叉处会自然发光。再加一层 blur 滤镜的发光层，模拟光晕扩散。",
+        glsl: `ctx.globalCompositeOperation = "lighter";
+// 此时重叠区域: resultColor = color1 + color2
+// 半透明紫 + 半透明紫 = 更亮的紫（自然发光）
+
+// 额外发光层
+ctx.filter = \`blur(\${glowIntensity}px)\`;
+ctx.globalAlpha = 0.3;
+// 再画一次同样的叶片 → 产生柔和的光晕扩散`,
+      },
+      {
+        step: "05",
+        title: "中心高光汇聚 (Center Highlight)",
+        description:
+          "在涡轮中心画一个小的径向渐变圆——从白色/高光色到透明。配合 lighter 混合模式，这个高光点模拟所有叶片光线汇聚到焦点的效果，让整个涡轮看起来有一个发光的「能量核心」。",
+        glsl: `const centerGrad = ctx.createRadialGradient(cx, cy, 0, cx, cy, glowRadius);
+centerGrad.addColorStop(0, "rgba(highlight, 0.6)");
+centerGrad.addColorStop(0.5, "rgba(highlight, 0.15)");
+centerGrad.addColorStop(1, "rgba(highlight, 0)");
+ctx.fillStyle = centerGrad;
+ctx.fill();  // lighter 模式下自然叠加到叶片上`,
+      },
+    ],
+    concepts: [
+      {
+        name: "拖影衰减",
+        nameEN: "Trail Fade",
+        analogy:
+          "就像在黑板上写字后不擦干净，而是用半透明的黑色颜料薄薄刷一层——字迹会慢慢变淡但不会立刻消失",
+        explanation:
+          "Trail Fade 是一种 Canvas 动画技巧：每帧不调用 clearRect 清空画布，而是绘制一层低透明度的背景色覆盖。旧帧的像素值被逐帧衰减，产生运动物体后面的渐变拖影。fade 值控制衰减速度：0.01 产生极长的拖影，0.3 则几乎看不到拖影。业界也称为 Motion Trail 或 Ghosting Effect。",
+        whyItMatters:
+          "知道 Trail Fade 后，你就能对 AI 说「给这个动画加 trail fade 效果，fade 值设为 0.03 让拖影很长」，而不是说「让它后面有那种渐变的影子」",
+      },
+      {
+        name: "加法混合",
+        nameEN: "Additive Blending",
+        analogy:
+          "就像两束手电筒的光照在同一面墙上——重叠区域不会变暗，反而会更亮",
+        explanation:
+          "Additive Blending（Canvas 中对应 globalCompositeOperation = 'lighter'）将重叠像素的 RGB 值直接相加。与默认的 alpha 混合不同，加法混合让重叠区域更亮而非更暗，非常适合模拟光、火焰、能量等发光效果。在游戏和视觉特效中，这是最常用的粒子混合模式之一。",
+        whyItMatters:
+          "知道 Additive Blending 后，你就能对 AI 说「用 lighter 混合模式让粒子重叠处产生加法发光效果」，而不是说「让重叠的地方变亮一点」",
+      },
+      {
+        name: "圆弧扇形",
+        nameEN: "Arc Segment",
+        analogy:
+          "就像把一个甜甜圈切成几段——每段是一个弧形区域，由内外两条弧线围成",
+        explanation:
+          "Arc Segment 是用 Canvas ctx.arc() 构造的扇形/环形路径。通过指定起止角度和内外半径，可以画出任意大小的弧形区域。多个 Arc Segment 等角度分布就构成了涡轮叶片、饼图扇区、Loading 环等常见图形。关键技巧是用两次 arc（一次顺时针画外弧，一次逆时针画内弧）闭合路径。",
+        whyItMatters:
+          "知道 Arc Segment 后，你就能对 AI 说「用 arc segment 画 3 个等分的环形叶片，每个占 100 度弧度」，而不是说「画几个弯弯的形状像风扇叶片一样」",
+      },
+      {
+        name: "玻璃拟态",
+        nameEN: "Glassmorphism",
+        analogy:
+          "就像透过磨砂玻璃看彩色灯光——半透明、边缘模糊、重叠处颜色混合",
+        explanation:
+          "Glassmorphism 是一种视觉设计风格，核心特征是：半透明背景、模糊效果（backdrop-filter: blur）、微妙的边框和高光。在 Canvas 中，用低 opacity 填充 + 径向渐变 + additive blending 可以模拟类似的玻璃质感——物体看起来是半透明的、发光的、有深度层次的。",
+        whyItMatters:
+          "知道 Glassmorphism 后，你就能对 AI 说「给这个组件做 glassmorphism 风格，半透明背景加模糊加发光边缘」，而不是说「让它看起来像玻璃一样透明发光」",
+      },
+    ],
+    applications: [
+      {
+        field: "Loading 动画",
+        examples:
+          "玻璃质感的旋转 loading、发光涡轮加载指示器、trail fade 进度环",
+      },
+      {
+        field: "背景装饰",
+        examples:
+          "Landing Page 的动态玻璃涡轮背景、SaaS 产品的 hero section 动效、暗色主题的发光装饰元素",
+      },
+      {
+        field: "数据可视化",
+        examples:
+          "带拖影的旋转饼图过渡、环形图的发光动画、仪表盘的玻璃质感指针",
+      },
+      {
+        field: "游戏特效",
+        examples:
+          "能量护盾的旋转发光效果、技能释放的涡旋动画、传送门的玻璃涡轮特效",
+      },
+    ],
+    keyInsight:
+      "**玻璃涡轮效果的本质是「不清空 + 加法叠加」的组合魔法**。传统动画每帧清空重画，画面干净但没有时间记忆；Trail Fade 保留历史帧的「残影」，让运动产生连续的渐变拖尾。Additive Blending 让重叠变亮而非变暗，违反日常直觉但完美模拟光的行为。两者结合：旋转的叶片留下渐变的光迹，光迹重叠处自然发光——不需要任何模糊滤镜或后处理，仅靠最基础的 Canvas 2D 操作就能产生复杂的玻璃光效。核心术语链：**Trail Fade**（拖影衰减）→ **Additive Blending**（加法混合）→ **Arc Segment**（圆弧路径）→ **Radial Gradient**（径向渐变）→ **Glassmorphism**（玻璃拟态）。记住：**最惊艳的视觉效果往往不是复杂算法的产物，而是简单操作的巧妙组合——一层半透明覆盖 + 一个混合模式切换，就能让平凡的旋转圆弧变成流光溢彩的玻璃涡轮**。",
+  },
+  cosmicvortex: {
+    id: "cosmicvortex",
+    title: "Cosmic Vortex",
+    subtitle: "宇宙涡旋黑洞吸积盘效果",
+    oneLiner:
+      "基于开普勒轨道力学（Keplerian Orbit）的粒子螺旋系统——用对数螺旋分布 + 差异角速度 + 加法混合吸积盘产生宇宙黑洞的视觉效果",
+    whatYouSee:
+      "数千粒子沿多条螺旋旋臂环绕屏幕中央的黑暗空洞运动，内侧粒子转得更快，外侧更慢——这就是 **Keplerian Orbit（开普勒轨道）** 的差异旋转。在特定半径带上，粒子密集重叠形成一条明亮的光环——这就是 **Accretion Disk（吸积盘）**，通过 **Additive Blending（加法混合）** 让重叠粒子自然发亮。拖尾效果来自 **Trail Fade（拖影衰减）**——每帧用半透明背景色覆盖而非清空画布，历史帧逐渐衰减产生流线型光迹。中央黑暗区域是 **Event Horizon（事件视界）**——一个无粒子的暗色径向渐变覆盖区。",
+    pipeline: [
+      {
+        step: "01",
+        title: "粒子生成 — 对数螺旋分布 (Logarithmic Spiral Spawn)",
+        description:
+          "粒子用极坐标 (angle, radius) 存储。半径用高斯分布偏向吸积盘中心位置，角度基于旋臂编号 + 对数螺旋偏移 + 随机散布。这样粒子天然形成多条旋臂结构，密度集中在特定半径带上。",
+        glsl: `const arm = Math.floor(Math.random() * armCount);
+const armOffset = (arm * 2 * Math.PI) / armCount;
+// Gaussian-biased radius → 粒子密度偏向 diskRadius
+const gauss = Math.sqrt(-2*Math.log(u)) * Math.cos(2*Math.PI*v);
+let r = diskCenter + gauss * diskSigma;
+// Log spiral angle offset
+const spiralAngle = tightness * Math.log(r / minR + 1);
+angle = armOffset + spiralAngle + scatter;`,
+      },
+      {
+        step: "02",
+        title: "开普勒运动 — 差异角速度 (Keplerian Differential Rotation)",
+        description:
+          "每帧根据粒子到中心的距离计算角速度 ω ∝ r^(-1.5)——距离越近，转得越快。这是真实天体力学中开普勒第三定律的简化版本。同时粒子有微弱的径向向内漂移，模拟物质被吸积的过程。越过事件视界或超出边界的粒子会被重新生成。",
+        glsl: `const normR = particle.radius / maxR;
+const omega = rotationSpeed / (Math.pow(normR + 0.05, 1.5) + 0.01);
+particle.angle += omega * dt;
+particle.radius += radialDrift * dt;  // 缓慢向内漂移
+if (radius < eventHorizon || radius > maxR) respawn();`,
+      },
+      {
+        step: "03",
+        title: "拖影衰减 (Trail Fade)",
+        description:
+          "不清空画布，而是每帧用半透明背景色覆盖：fillRect(rgba(bg, trailFade))。旧帧自然衰减，产生连续的流线型拖尾。trailFade 越小，拖尾越长；越大，画面越「干净」。这个技术和 Glass Turbine 完全一致——简单但效果惊人。",
+        glsl: `// 每帧开头：不 clearRect，而是叠一层半透明背景
+ctx.globalCompositeOperation = "source-over";
+ctx.fillStyle = \`rgba(\${bgR},\${bgG},\${bgB},\${trailFade})\`;
+ctx.fillRect(0, 0, w, h);`,
+      },
+      {
+        step: "04",
+        title: "加法混合粒子绘制 (Additive Blending Particle Draw)",
+        description:
+          "切换到 globalCompositeOperation = 'lighter'（加法混合），逐粒子绘制。近吸积盘的粒子更大更亮（高斯权重 diskFactor），并带有 shadowBlur 发光。白/银色粒子占 85%，随机混入暖色点缀（橙/琥珀）。小于 1px 的粒子用 fillRect 替代 arc 提升性能。",
+        glsl: `ctx.globalCompositeOperation = "lighter";
+const diskFactor = exp(-(distToDisk²) / (2 * sigma²));
+const drawSize = baseSize * (1 + diskFactor * 1.5);
+const drawOpacity = opacity * (0.3 + diskFactor * 0.7);
+if (glowIntensity > 0 && diskFactor > 0.3) {
+  ctx.shadowBlur = glowIntensity * diskFactor;
+}
+drawSize < 1 ? fillRect(...) : arc(...);`,
+      },
+      {
+        step: "05",
+        title: "中央空洞 — 事件视界 (Event Horizon Void)",
+        description:
+          "切回 source-over 模式，在中心绘制一个暗色径向渐变覆盖。中心完全不透明（和背景色一致），边缘渐变透明。这会「吞噬」落入事件视界附近的粒子光迹，强化黑洞的视觉效果。",
+        glsl: `ctx.globalCompositeOperation = "source-over";
+const voidGrad = ctx.createRadialGradient(cx, cy, 0, cx, cy, voidR);
+voidGrad.addColorStop(0, \`rgba(bg, 1)\`);     // 中心完全黑
+voidGrad.addColorStop(0.5, \`rgba(bg, 0.95)\`);
+voidGrad.addColorStop(0.8, \`rgba(bg, 0.4)\`); // 边缘渐隐
+voidGrad.addColorStop(1, \`rgba(bg, 0)\`);`,
+      },
+    ],
+    concepts: [
+      {
+        name: "开普勒轨道",
+        nameEN: "Keplerian Orbit",
+        analogy:
+          "*就像太阳系中水星比海王星转得快得多——越靠近中心，公转越快*",
+        explanation:
+          "开普勒第三定律的简化：角速度 ω ∝ r^(-1.5)。在粒子系统中，这产生了「差异旋转」——内侧粒子甩开外侧粒子，自然形成旋臂拖曳和扭曲的视觉效果。不需要真实的引力模拟，一个简单的幂律公式就够了。",
+        whyItMatters:
+          "知道 Keplerian Orbit 后，你可以对 AI 说「让粒子像行星轨道一样差异旋转」而不是模糊地说「让里面的转快一点」",
+      },
+      {
+        name: "吸积盘",
+        nameEN: "Accretion Disk",
+        analogy:
+          "*想象浴缸放水时水流旋转汇聚的那个圆环——物质在特定轨道上密集堆积*",
+        explanation:
+          "天体物理中，吸积盘是物质围绕致密天体旋转形成的高密度盘状结构。在粒子效果中，通过高斯分布让粒子密度集中在特定半径带，配合 Additive Blending 让重叠区域自然变亮——不需要额外的发光滤镜，密度本身就是亮度。",
+        whyItMatters:
+          "知道 Accretion Disk 后，你可以对 AI 说「做一个吸积盘效果，粒子密度偏向某个半径带并用加法混合发光」",
+      },
+      {
+        name: "拖影衰减",
+        nameEN: "Trail Fade",
+        analogy:
+          "*就像在毛玻璃上画画——新笔迹清晰，旧笔迹慢慢被雾气覆盖消失*",
+        explanation:
+          "每帧用 rgba(bgColor, alpha) 覆盖整个画布。alpha 越小，旧帧衰减越慢，拖尾越长。这是 Canvas 2D 最经典的拖尾技术——零额外内存开销，不需要存储历史帧，仅靠持续叠加半透明层实现时间维度上的视觉记忆。",
+        whyItMatters:
+          "知道 Trail Fade 后，你可以对 AI 说「用 trail fade 做粒子拖尾，alpha 0.04 左右」而不是「怎么让粒子有尾巴」",
+      },
+      {
+        name: "加法混合",
+        nameEN: "Additive Blending",
+        analogy:
+          "*两束手电筒的光交叉时，交叉处更亮——光是叠加的而不是覆盖的*",
+        explanation:
+          "Canvas 2D 的 globalCompositeOperation = 'lighter'。新像素的 RGB 值与已有像素相加（上限 255）。多个半透明粒子重叠时，颜色值累加变亮。吸积盘区域粒子密集 → 重叠多 → 自然最亮。这完美模拟了发光体的物理行为。",
+        whyItMatters:
+          "知道 Additive Blending 后，你可以对 AI 说「用 lighter 混合模式让粒子重叠区域自然发光」",
+      },
+      {
+        name: "事件视界",
+        nameEN: "Event Horizon",
+        analogy:
+          "*瀑布的边缘——水流过这条线就再也回不来了*",
+        explanation:
+          "黑洞的「不归点」。在视觉效果中，用一个从不透明到透明的径向渐变覆盖中心区域，让粒子的光迹在接近中心时被「吞噬」。配合事件视界内无粒子生成的规则，产生中央黑暗空洞的效果。",
+        whyItMatters:
+          "知道 Event Horizon 后，你可以对 AI 说「中心做一个事件视界效果——径向渐变暗色覆盖，内部无粒子」",
+      },
+    ],
+    applications: [
+      {
+        field: "科学可视化",
+        examples:
+          "黑洞吸积盘模拟、星系旋臂结构展示、天体物理教学动画",
+      },
+      {
+        field: "游戏特效",
+        examples:
+          "传送门旋涡、暗黑系技能释放、宇宙主题 UI 背景、Boss 出场黑洞效果",
+      },
+      {
+        field: "数据可视化",
+        examples:
+          "向心力场数据展示、网络流量聚合可视化、粒子密度分布图",
+      },
+      {
+        field: "影视后期",
+        examples:
+          "科幻片黑洞场景预览、宇宙题材片头动画、MV 视觉效果",
+      },
+    ],
+    keyInsight:
+      "**宇宙涡旋效果的本质是「简单物理规则 + 统计密度 + 加法混合」的涌现**。没有复杂的 N-body 引力模拟，只有一个 r^(-1.5) 的角速度公式（开普勒轨道）；没有刻意绘制发光带，只有高斯分布让粒子在特定半径上密集聚集（吸积盘）；没有后处理泛光滤镜，只有 globalCompositeOperation = 'lighter' 让重叠变亮（加法混合）；没有帧缓冲区存储，只有每帧一层半透明覆盖（Trail Fade）。四个简单技术的组合，涌现出了宇宙黑洞的壮丽视觉。核心术语链：**Keplerian Orbit**（开普勒轨道）→ **Accretion Disk**（吸积盘）→ **Trail Fade**（拖影衰减）→ **Additive Blending**（加法混合）→ **Event Horizon**（事件视界）。记住：**最令人敬畏的宇宙现象，往往可以用最基础的数学规则复现——一个幂律公式、一个高斯分布、一个混合模式，就能在浏览器里创造一个黑洞**。",
+  },
+  trailfade: {
+    id: "trailfade",
+    title: "Trail Fade",
+    subtitle: "贝塞尔画笔拖影引擎",
+    oneLiner:
+      "基于 Canvas 2D destination-out 混合模式的旋转画笔拖影动画——用透明度衰减制造光芒消散效果",
+    whatYouSee:
+      "你看到几条发光的弧线从中心旋转扩散，像风车一样匀速转动，每条弧线身后拖着一条逐渐消散的光尾。这种效果叫 **Trail Fade（拖影衰减）**，核心技巧是每帧不清空画布，而是用 **destination-out** 混合模式让已有像素慢慢变透明，画布本身是透明的，底下的 CSS 渐变背景自然透出，形成「光芒在色彩背景上消散」的优雅视觉。",
+    pipeline: [
+      {
+        step: "01",
+        title: "透明画布 + CSS 背景分离 (Transparent Canvas)",
+        description:
+          "Canvas 以 alpha: true 模式创建，自身完全透明。背景色由 CSS linear-gradient 提供。这样画布上的拖影衰减不会累积成脏色——像素变透明后就露出干净的渐变背景。这是比传统「半透明黑色矩形覆盖」更优雅的拖影方案。",
+        glsl: `const ctx = canvas.getContext('2d', { alpha: true });
+// Canvas 透明 → 拖影衰减 → 露出 CSS 背景
+// 传统方案用 rgba(0,0,0,0.06) 覆盖会导致残影累积
+// destination-out 方案直接降低像素透明度，干净利落`,
+      },
+      {
+        step: "02",
+        title: "拖影衰减 (Trail Fade via destination-out)",
+        description:
+          "每帧开头，将混合模式设为 destination-out，然后用一个带透明度的矩形覆盖整个画布。destination-out 的含义是「新绘制的区域会从已有像素中扣除透明度」，相当于让整个画面每帧变淡一点点。trailFade 值越小，每帧扣除的透明度越少，拖影就越长。",
+        glsl: `ctx.globalCompositeOperation = 'destination-out';
+ctx.fillStyle = \`rgba(0, 0, 0, \${trailFade / 100})\`;
+ctx.fillRect(0, 0, w, h);
+// trailFade=6 → 每帧扣除 6% 透明度 → 约 16 帧后完全消失
+// trailFade=2 → 每帧扣除 2% → 约 50 帧后消失 → 拖影更长`,
+      },
+      {
+        step: "03",
+        title: "旋转坐标系 + 分支复制 (Rotation + Branch Cloning)",
+        description:
+          "将坐标原点移到画布中心，然后按全局角度旋转。对每个分支，再旋转 (i * 2π / N) 的角度。这样只需定义一条弧线的形状，通过旋转复制就能生成 N 条均匀分布的分支——这是「对称图案」的标准做法。",
+        glsl: `ctx.translate(cx, cy);
+ctx.rotate(angle * Math.PI / 180);
+for (let i = 0; i < branches; i++) {
+  ctx.save();
+  ctx.rotate(i * 2 * Math.PI / branches);
+  // 只画一条弧线，旋转复制 N 次
+  ctx.restore();
+}
+angle += speed; // 每帧递增角度`,
+      },
+      {
+        step: "04",
+        title: "二次贝塞尔曲线画笔 (Quadratic Bezier Brush)",
+        description:
+          "每条分支的形状是一条从中心出发的二次贝塞尔曲线。控制点的 Y 值（curve 参数）决定弧线的弯曲方向和幅度——正值向上弯，负值向下弯，零值是直线。配合 lineCap: 'round' 实现圆润笔触。",
+        glsl: `ctx.beginPath();
+ctx.moveTo(0, 0);
+// quadraticCurveTo(控制点X, 控制点Y, 终点X, 终点Y)
+ctx.quadraticCurveTo(curve, radius / 2, radius, 0);
+ctx.lineWidth = brushSize;
+ctx.lineCap = 'round';
+// curve > 0 → 弧线向上弯 (像扇叶)
+// curve < 0 → 弧线向下弯 (像爪子)
+// curve = 0 → 直线 (像光束)`,
+      },
+      {
+        step: "05",
+        title: "线性渐变 + shadowBlur 辉光 (Gradient + Glow)",
+        description:
+          "笔刷的颜色从中心色渐变到边缘色，用 createLinearGradient 沿弧线方向铺设。再加上 shadowColor + shadowBlur 制造辉光效果。Canvas 的 shadow 系列属性是最简单的辉光方案——不需要后处理滤镜，直接在绘制时生效。",
+        glsl: `const grad = ctx.createLinearGradient(0, 0, radius, 0);
+grad.addColorStop(0, colorCenter); // 中心：白色
+grad.addColorStop(1, colorEdge);   // 边缘：紫色
+ctx.strokeStyle = grad;
+ctx.shadowColor = colorEdge;
+ctx.shadowBlur = glowBlur;
+ctx.stroke();
+// shadow 会在笔触周围生成高斯模糊的辉光层`,
+      },
+    ],
+    concepts: [
+      {
+        name: "destination-out 混合模式",
+        nameEN: "Destination-Out Compositing",
+        analogy:
+          "想象一张画在玻璃上的画，你用橡皮每秒轻轻擦一遍——不是一次擦干净，而是每次只擦掉一点点。旧的笔迹慢慢消失，新的笔迹最清晰。",
+        explanation:
+          "Canvas 的 globalCompositeOperation: 'destination-out' 让新绘制的形状不会添加颜色，而是从已有像素中「扣除」透明度。配合每帧绘制一个低透明度的全屏矩形，就能让整个画面逐渐变透明。这是制造拖影效果的最干净方案，因为不会像 rgba 覆盖法那样产生残影累积。",
+        whyItMatters:
+          "知道这个词后，你就能对 AI 说「用 destination-out compositing 做 trail fade 效果」，而不是含糊地说「让画面慢慢消失」。",
+      },
+      {
+        name: "二次贝塞尔曲线",
+        nameEN: "Quadratic Bezier Curve",
+        analogy:
+          "在两个钉子之间绷一根橡皮筋，然后用一根手指从侧面把它拉出一个弧度——手指的位置就是「控制点」，决定了弧线的形状。",
+        explanation:
+          "quadraticCurveTo(cpx, cpy, x, y) 用一个控制点和一个终点定义一条平滑曲线。曲线从当前点出发，被控制点「吸引」后到达终点。控制点不在曲线上，但决定了曲线的弯曲方向和幅度。这是 Canvas 中最基础的曲线绘制 API。",
+        whyItMatters:
+          "知道这个词后，你就能对 AI 说「用 quadratic Bezier 画弧形笔触」，精确描述你想要的曲线效果。",
+      },
+      {
+        name: "Canvas Shadow 辉光",
+        nameEN: "Canvas Shadow Glow",
+        analogy:
+          "就像霓虹灯管——灯管本身是一条线，但周围会散发出柔和的光晕。shadowBlur 就是控制这个光晕大小的旋钮。",
+        explanation:
+          "Canvas 的 shadowColor + shadowBlur 属性会在任何绘制操作周围生成一层高斯模糊的「影子」。虽然叫 shadow（阴影），但用明亮的颜色就变成了辉光（Glow）。这是不需要后处理的最简单辉光方案，代价是 shadowBlur 值大时性能开销较高。",
+        whyItMatters:
+          "知道这个词后，你就能对 AI 说「用 Canvas shadowBlur 做 neon glow 效果」，而不是去研究复杂的后处理管线。",
+      },
+      {
+        name: "旋转对称复制",
+        nameEN: "Rotational Symmetry Cloning",
+        analogy:
+          "万花筒的原理——只需要一小块碎片图案，通过镜面反射和旋转复制，就能产生完美对称的整体图案。",
+        explanation:
+          "定义一个基础形状，然后在 for 循环中旋转 (i * 2π / N) 弧度绘制 N 次，就能生成 N 重旋转对称图案。Canvas 的 save/rotate/restore 机制让这种变换非常高效——每次旋转不影响其他分支的坐标系。",
+        whyItMatters:
+          "知道这个词后，你就能对 AI 说「用 rotational symmetry 生成 N 分支对称图案」，一句话描述出万花筒、风车、雪花等效果的核心思路。",
+      },
+    ],
+    applications: [
+      {
+        field: "加载动画",
+        examples:
+          "旋转拖影 Loading Spinner、品牌化等待动画、应用启动过渡效果",
+      },
+      {
+        field: "音乐可视化",
+        examples:
+          "节拍驱动的旋转光芒、频谱映射到分支数/速度/半径、DJ 软件视觉效果",
+      },
+      {
+        field: "游戏特效",
+        examples:
+          "技能释放旋转光环、传送门能量效果、角色 Buff 光圈、魔法阵旋转",
+      },
+      {
+        field: "UI 装饰",
+        examples:
+          "仪表盘背景动效、暗色主题装饰元素、Hero Section 动态背景",
+      },
+    ],
+    keyInsight:
+      "**拖影效果的本质是「不清空 + 逐帧衰减」的时间积分可视化**。传统动画每帧清空画布重绘，拖影则反其道而行——保留历史帧的痕迹，只让它们慢慢消失。destination-out 是最优雅的衰减手段：不往画布上加颜色，而是从已有像素上减去透明度。配合透明画布 + CSS 背景分离，拖影消散后露出的是干净的渐变背景，而非累积的脏色。核心术语链：**Trail Fade**（拖影衰减）→ **destination-out**（透明度扣除）→ **Quadratic Bezier**（贝塞尔曲线）→ **Rotational Symmetry**（旋转对称）→ **shadowBlur Glow**（阴影辉光）。记住：**最惊艳的拖影效果，不是画出来的，而是「没有擦干净」的——控制遗忘的速度，就是控制美的余韵**。",
+  },
 };

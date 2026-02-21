@@ -1650,4 +1650,134 @@ return vec4(col, t * uOpacity);  // t 是形状 mask, uOpacity 控制总透明�
     keyInsight:
       "Horizon 的核心洞察是「参数化 = 从作品到工具的跃迁」。Train Journey 是一幅精心手绘的画——14 层手调颜色、固定的火车和桥梁；Horizon 是一台画画机器——用循环和参数取代硬编码，用三色渐变取代 40+ 个 RGB 值。看似简化，实则升维：一个固定作品只有一种形态，一个参数化系统拥有无限变体。这正是程序化生成（Procedural Generation）的哲学精髓——不要画一棵树，要写一个长树的规则。从游戏世界生成到 AI 辅助设计，参数化思维是通往「用代码创造世界」的第一步。",
   },
+  sdfray: {
+    id: "sdfray",
+    title: "SDF Raymorph",
+    subtitle: "SDF 形状变形光照渲染",
+    oneLiner:
+      "用 Signed Distance Function 定义几何体，Raymarching 逐步逼近表面，Phong 光照模型赋予质感——三者组合实现实时 3D 渲染",
+    whatYouSee:
+      "一个介于立方体和球体之间的 3D 物体在缓慢旋转，表面带有金属质感的高光。物体的形状可以在方块和球体之间平滑过渡，还能施加空间扭曲让它像被拧毛巾一样变形。这种效果叫 **SDF Raymarching**——不用三角形网格，而是用数学公式定义物体的形状，然后用光线一步步「走」到物体表面。",
+    pipeline: [
+      {
+        step: "01",
+        title: "SDF 几何定义 (Signed Distance Function)",
+        description:
+          "每个基础形状用一个返回「到最近表面距离」的数学函数定义。球体就是 length(p) - radius；圆角方块稍复杂但本质一样——给定空间中任意一点，函数告诉你「这里离表面有多远，正值在外面，负值在里面」。形状变形（Morphing）只需 mix(dBox, dSphere, t) 做线性插值。",
+        glsl: `float sdSphere(vec3 p, float s) {
+    return length(p) - s;
+}
+float sdRoundBox(vec3 p, vec3 b, float r) {
+    vec3 q = abs(p) - b;
+    return length(max(q, 0.0)) +
+           min(max(q.x, max(q.y, q.z)), 0.0) - r;
+}
+// 形状插值
+return mix(dBox, dSphere, u_shapeBlend);`,
+      },
+      {
+        step: "02",
+        title: "空间扭曲 (Domain Distortion)",
+        description:
+          "在计算 SDF 之前，先对输入坐标施加变换。opTwist 函数根据 Y 轴高度旋转 XZ 平面——高度越高旋转角度越大，物体就像被拧麻花一样扭曲。这叫「域变换」，是 SDF 的杀手级特性：直接修改坐标空间就能创造复杂变形，不需要修改几何体本身。",
+        glsl: `vec3 opTwist(vec3 p, float k) {
+    float c = cos(k * p.y);
+    float s = sin(k * p.y);
+    mat2 m = mat2(c, -s, s, c);
+    vec2 xz = m * p.xz;
+    return vec3(xz.x, p.y, xz.y);
+}`,
+      },
+      {
+        step: "03",
+        title: "光线步进 (Raymarching)",
+        description:
+          "从相机出发，沿每条像素的射线方向「步进」。每步问 SDF：「这里离最近表面多远？」然后前进那个距离（Sphere Tracing）。如果距离极小（< 0.001），说明到了表面；如果走太远（> 20），说明没命中任何东西。100 次迭代内找到交点。",
+        glsl: `float t = 0.0;
+for(int i = 0; i < 100; i++) {
+    vec3 p = ro + rd * t;
+    float d = map(p);
+    if(d < 0.001 || t > 20.0) break;
+    t += d; // 安全步进距离
+}`,
+      },
+      {
+        step: "04",
+        title: "法线计算 (Normal Estimation)",
+        description:
+          "命中表面后，用「有限差分」估算法线：在命中点的 ±ε 方向采样 SDF，差值的方向就是表面法线。这个四面体采样技巧（tetrahedron technique）只需 4 次 map() 调用，比传统的 6 次中心差分更高效。",
+        glsl: `vec3 calcNormal(vec3 p) {
+    vec2 e = vec2(1.0,-1.0) * 0.5773 * 0.0005;
+    return normalize(
+        e.xyy * map(p + e.xyy) +
+        e.yyx * map(p + e.yyx) +
+        e.yxy * map(p + e.yxy) +
+        e.xxx * map(p + e.xxx));
+}`,
+      },
+      {
+        step: "05",
+        title: "Phong 光照模型 (Phong Shading)",
+        description:
+          "有了法线和光源方向，就能算光照：漫反射 = dot(法线, 光方向)，让面朝光的区域更亮；高光 = 反射向量与视线方向的 N 次方，产生金属质感的亮点。环境光提供基础亮度防止暗面全黑。最后 Gamma 校正将线性空间颜色映射到显示器的 sRGB 空间。",
+        glsl: `float diff = max(dot(n, l), 0.0);
+vec3 reflectDir = reflect(-l, n);
+float spec = pow(max(dot(viewDir, reflectDir), 0.0),
+                 u_shininess);
+vec3 col = baseColor * (diff + u_ambient)
+         + vec3(1.0) * spec * 0.6;
+col = pow(col, vec3(1.0/2.2)); // Gamma`,
+      },
+    ],
+    concepts: [
+      {
+        name: "有符号距离场",
+        nameEN: "Signed Distance Function (SDF)",
+        analogy:
+          "想象你闭着眼站在一个房间里，手里有个测距仪——朝任何方向按一下就知道「离最近的墙有多远」。SDF 就是这个测距仪的数学版本，它为空间中每个点返回「到最近表面的距离」。",
+        explanation:
+          "SDF 用一个标量函数 f(p) 定义几何体：f > 0 在外面，f = 0 是表面，f < 0 在里面。基础图元（球、方块、圆柱等）各有简洁的公式，复杂形状通过 min/max/mix 组合得到。SDF 的核心优势是支持平滑融合（smooth union）和域变换（twist/bend），传统网格做不到。",
+        whyItMatters:
+          "知道这个词后，你就能对 AI 说「用 SDF 定义形状并做 smooth morphing」，描述从简单图元到复杂有机形态的变形动画。",
+      },
+      {
+        name: "光线步进",
+        nameEN: "Raymarching / Sphere Tracing",
+        analogy:
+          "想象你在浓雾中开车，每次只能看到前方 D 米——你开 D 米，再看一次，又能看 D' 米……不断重复直到撞上东西。每次的「安全距离」就是 SDF 返回的值。",
+        explanation:
+          "Raymarching 是一种隐式表面渲染技术：从相机发射射线，沿射线方向逐步前进。每步查询 SDF 获取「到最近表面的距离」，然后安全地前进该距离（Sphere Tracing）。这保证不会穿透表面，且在远离物体时大步快进、接近时小步精确。",
+        whyItMatters:
+          "知道这个词后，你就能对 AI 说「用 Raymarching 渲染 SDF 场景」，区分它与光线追踪（Ray Tracing）和光栅化（Rasterization）的不同渲染范式。",
+      },
+      {
+        name: "Phong 光照模型",
+        nameEN: "Phong Reflection Model",
+        analogy:
+          "把一个苹果放在灯下观察：整体被照亮的部分是「漫反射」，苹果表面那个小亮点是「高光」，即使背光面也不是全黑是因为「环境光」。Phong 模型就是把这三种光加在一起。",
+        explanation:
+          "Phong 模型将表面光照分解为三个分量：Ambient（恒定环境光）+ Diffuse（与法线和光方向的点积成正比）+ Specular（反射向量与视线方向的 N 次幂）。Shininess 参数控制高光的锐利程度——值越高高光越小越亮，模拟金属/塑料等不同材质。",
+        whyItMatters:
+          "知道这个词后，你就能对 AI 说「用 Phong shading 做 ambient + diffuse + specular 光照」，精确描述你想要的 3D 材质质感。",
+      },
+      {
+        name: "域变换",
+        nameEN: "Domain Distortion / Space Warping",
+        analogy:
+          "在橡皮泥上按下模具前，先把橡皮泥拧一下——你不是改变了模具的形状，而是改变了「空间本身」，最终的形状就会扭曲。",
+        explanation:
+          "在 SDF 渲染中，不直接修改距离函数，而是在调用 SDF 之前变换输入坐标。opTwist 沿 Y 轴旋转 XZ 平面，opBend 弯曲空间，opRepeat 无限复制……这些都是对「定义域」的操作。域变换的优雅之处在于：任意简单 SDF + 域变换 = 复杂有机形态。",
+        whyItMatters:
+          "知道这个词后，你就能对 AI 说「对 SDF 施加 domain twist / bend / repeat」，一句话描述复杂的空间变形效果。",
+      },
+    ],
+    applications: [
+      { field: "3D 建模预览", examples: "SDF 建模工具实时预览、参数化家具/珠宝设计、隐式曲面编辑器" },
+      { field: "游戏特效", examples: "变形动画过渡、魔法物体变形、Boss 变身效果" },
+      { field: "科学可视化", examples: "分子表面渲染、等值面可视化、医学影像 3D 重建" },
+      { field: "品牌动效", examples: "Logo 3D 变形动画、产品展示旋转、App 启动 3D 动效" },
+    ],
+    keyInsight:
+      "**SDF Raymarching 的本质是「用数学代替几何」**。传统 3D 渲染需要成千上万个三角形拼出表面，SDF 只需一个数学函数——length(p) - r 就是一个完美球体，abs(p) - b 就是一个方块。更妙的是 mix(sdfA, sdfB, t) 就能让两个形状平滑变形，这在三角形网格里需要复杂的拓扑匹配算法。Raymarching 的 Sphere Tracing 策略则巧妙利用了 SDF 的距离信息——你永远知道「至少能安全前进多远」，既不会穿透表面，又能快速跳过空旷区域。核心术语链：**SDF**（距离场定义形状）→ **Domain Distortion**（扭曲空间）→ **Raymarching**（光线步进找表面）→ **Normal Estimation**（有限差分求法线）→ **Phong Shading**（三分量光照）。记住：**最复杂的 3D 形状，可能只需要一行数学公式**。",
+  },
 };

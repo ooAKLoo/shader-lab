@@ -39,6 +39,8 @@ import { TrainjourneyCanvas, type TrainjourneyParams } from "./shaders/trainjour
 import { TrainjourneyControls } from "./shaders/trainjourney/TrainjourneyControls";
 import { HorizonCanvas, type HorizonParams } from "./shaders/horizon/HorizonCanvas";
 import { HorizonControls } from "./shaders/horizon/HorizonControls";
+import { SdfrayCanvas, type SdfrayParams } from "./shaders/sdfray/SdfrayCanvas";
+import { SdfrayControls } from "./shaders/sdfray/SdfrayControls";
 import { GooeyCanvas, type GooeyParams } from "./demos/gooey/GooeyCanvas";
 import { GooeyControls } from "./demos/gooey/GooeyControls";
 import { ParallaxCanvas } from "./demos/parallax/ParallaxCanvas";
@@ -142,6 +144,18 @@ import { StarfieldCanvas } from "./particle/starfield/StarfieldCanvas";
 import { StarfieldControls } from "./particle/starfield/StarfieldControls";
 import type { StarfieldParams } from "./particle/starfield/types";
 import { DEFAULT_CONFIG as DEFAULT_STARFIELD } from "./particle/starfield/constants";
+import { GlassturbineCanvas } from "./particle/glassturbine/GlassturbineCanvas";
+import { GlassturbineControls } from "./particle/glassturbine/GlassturbineControls";
+import type { GlassturbineParams } from "./particle/glassturbine/types";
+import { DEFAULT_CONFIG as DEFAULT_GLASSTURBINE } from "./particle/glassturbine/constants";
+import { CosmicvortexCanvas } from "./particle/cosmicvortex/CosmicvortexCanvas";
+import { CosmicvortexControls } from "./particle/cosmicvortex/CosmicvortexControls";
+import type { CosmicvortexParams } from "./particle/cosmicvortex/types";
+import { DEFAULT_CONFIG as DEFAULT_COSMICVORTEX } from "./particle/cosmicvortex/constants";
+import { TrailfadeCanvas } from "./particle/trailfade/TrailfadeCanvas";
+import { TrailfadeControls } from "./particle/trailfade/TrailfadeControls";
+import type { TrailfadeParams } from "./particle/trailfade/types";
+import { DEFAULT_CONFIG as DEFAULT_TRAILFADE } from "./particle/trailfade/constants";
 import type { ParticleType } from "./particle/particleTypes";
 import { PARTICLES } from "./particle/particleTypes";
 import { ParticleStrip } from "./components/ParticleStrip";
@@ -281,6 +295,20 @@ const DEFAULT_HORIZON: HorizonParams = {
   color3: "#9ab4ff",
 };
 
+const DEFAULT_SDFRAY: SdfrayParams = {
+  color1: "#ff2a5f",
+  color2: "#00d2ff",
+  shapeBlend: 0.5,
+  twist: 1.5,
+  speed: 1.0,
+  lightX: 2.0,
+  lightY: 3.0,
+  lightZ: 4.0,
+  ambient: 0.2,
+  shininess: 64.0,
+  cameraZ: 2.5,
+};
+
 const DEFAULT_GOOEY: GooeyParams = {
   scrollProgress: 0.0,
   colWidth: 0.7,
@@ -334,6 +362,10 @@ const SHADER_META: Record<ShaderType, ShaderMeta> = {
     name: "Horizon",
     technique: "Parametric Parallax + FBM Terrain + Depth Color Gradient",
   },
+  sdfray: {
+    name: "SDF Raymorph",
+    technique: "SDF Raymarching + Shape Morphing + Phong Lighting",
+  },
 };
 
 const App: React.FC = () => {
@@ -357,6 +389,7 @@ const App: React.FC = () => {
   const [jellyfishParams, setJellyfishParams] = useState<JellyfishParams>(DEFAULT_JELLYFISH);
   const [trainjourneyParams, setTrainjourneyParams] = useState<TrainjourneyParams>(DEFAULT_TRAINJOURNEY);
   const [horizonParams, setHorizonParams] = useState<HorizonParams>(DEFAULT_HORIZON);
+  const [sdfrayParams, setSdfrayParams] = useState<SdfrayParams>(DEFAULT_SDFRAY);
   const [gooeyParams, setGooeyParams] = useState<GooeyParams>(DEFAULT_GOOEY);
   const [echotraceParams, setEchotraceParams] = useState<EchotraceParams>(DEFAULT_ECHOTRACE);
   const [spotlightParams, setSpotlightParams] = useState<SpotlightParams>(DEFAULT_SPOTLIGHT);
@@ -406,6 +439,9 @@ const App: React.FC = () => {
   const [energyflowParams, setEnergyflowParams] = useState<EnergyflowParams>(DEFAULT_ENERGYFLOW);
   const [sankeyflowParams, setSankeyflowParams] = useState<SankeyflowParams>(DEFAULT_SANKEYFLOW);
   const [starfieldParams, setStarfieldParams] = useState<StarfieldParams>(DEFAULT_STARFIELD);
+  const [glassturbineParams, setGlassturbineParams] = useState<GlassturbineParams>(DEFAULT_GLASSTURBINE);
+  const [cosmicvortexParams, setCosmicvortexParams] = useState<CosmicvortexParams>(DEFAULT_COSMICVORTEX);
+  const [trailfadeParams, setTrailfadeParams] = useState<TrailfadeParams>(DEFAULT_TRAILFADE);
   const [columnfieldParams, setColumnfieldParams] = useState<ColumnFieldParams>(DEFAULT_COLUMNFIELD);
   const columnfieldAnalysisRef = useRef<Dotgrid2AudioAnalysis>({
     bass: 0, mud: 0, mid: 0, high: 0, energy: 0, onset: 0,
@@ -487,6 +523,7 @@ const App: React.FC = () => {
                   {activeShader === "jellyfish" && <JellyfishCanvas params={jellyfishParams} />}
                   {activeShader === "trainjourney" && <TrainjourneyCanvas params={trainjourneyParams} />}
                   {activeShader === "horizon" && <HorizonCanvas params={horizonParams} />}
+                  {activeShader === "sdfray" && <SdfrayCanvas params={sdfrayParams} />}
                 </div>
               </div>
 
@@ -541,6 +578,9 @@ const App: React.FC = () => {
                     )}
                     {activeShader === "horizon" && (
                       <HorizonControls params={horizonParams} onChange={setHorizonParams} />
+                    )}
+                    {activeShader === "sdfray" && (
+                      <SdfrayControls params={sdfrayParams} onChange={setSdfrayParams} />
                     )}
                   </div>
                 </div>
@@ -787,6 +827,9 @@ const App: React.FC = () => {
                   : activeParticle === "energyflow" ? "Energy Flow"
                   : activeParticle === "sankeyflow" ? "Sankey Flow"
                   : activeParticle === "starfield" ? "Starfield"
+                  : activeParticle === "glassturbine" ? "Glass Turbine"
+                  : activeParticle === "cosmicvortex" ? "Cosmic Vortex"
+                  : activeParticle === "trailfade" ? "Trail Fade"
                   : "Dot Grid"}
               </span>
               <span className="text-[9px] px-1.5 py-0.5 rounded bg-neutral-100 text-neutral-400">
@@ -803,6 +846,9 @@ const App: React.FC = () => {
                   : activeParticle === "energyflow" ? "Multi-Stream Bezier Convergence + Screen Blending Glow"
                   : activeParticle === "sankeyflow" ? "Cubic Bezier Sankey Branches + Offscreen Glow Compositing"
                   : activeParticle === "starfield" ? "Three.js Points + GLSL Z-Wrap + UnrealBloom Post-Processing"
+                  : activeParticle === "glassturbine" ? "Canvas 2D Arc Trail Fade + Additive Glass Compositing"
+                  : activeParticle === "cosmicvortex" ? "Canvas 2D Keplerian Spiral Orbits + Additive Accretion Disk Glow"
+                  : activeParticle === "trailfade" ? "Canvas 2D Bezier Brush + Destination-Out Trail Fade + Gradient Glow"
                   : "Canvas 2D Dot-to-Grid Morphing + Staggered Easing"}
               </span>
               <div className="flex-1" />
@@ -845,6 +891,13 @@ const App: React.FC = () => {
                   {activeParticle === "energyflow" && <EnergyflowCanvas params={energyflowParams} />}
                   {activeParticle === "sankeyflow" && <SankeyflowCanvas params={sankeyflowParams} />}
                   {activeParticle === "starfield" && <StarfieldCanvas params={starfieldParams} />}
+                  {activeParticle === "glassturbine" && <GlassturbineCanvas params={glassturbineParams} />}
+                  {activeParticle === "cosmicvortex" && <CosmicvortexCanvas params={cosmicvortexParams} />}
+                  {activeParticle === "trailfade" && (
+                    <div className="w-full h-full relative" style={{ background: `linear-gradient(135deg, ${trailfadeParams.bgTop}, ${trailfadeParams.bgBottom})` }}>
+                      <TrailfadeCanvas params={trailfadeParams} />
+                    </div>
+                  )}
                 </div>
               </div>
 
@@ -915,6 +968,15 @@ const App: React.FC = () => {
                     )}
                     {activeParticle === "starfield" && (
                       <StarfieldControls params={starfieldParams} onChange={setStarfieldParams} />
+                    )}
+                    {activeParticle === "glassturbine" && (
+                      <GlassturbineControls params={glassturbineParams} onChange={setGlassturbineParams} />
+                    )}
+                    {activeParticle === "cosmicvortex" && (
+                      <CosmicvortexControls params={cosmicvortexParams} onChange={setCosmicvortexParams} />
+                    )}
+                    {activeParticle === "trailfade" && (
+                      <TrailfadeControls params={trailfadeParams} onChange={setTrailfadeParams} />
                     )}
                   </div>
                 </div>

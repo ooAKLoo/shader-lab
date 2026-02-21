@@ -1,0 +1,126 @@
+import type { TrailfadeParams } from "./types";
+
+export const DEFAULT_CONFIG: TrailfadeParams = {
+  fused: false,
+  branches: 3,
+  trailFade: 6,
+  speed: 4,
+  radius: 160,
+  curve: 80,
+  brushSize: 24,
+  glowBlur: 15,
+  fusedDepth: 0.5,
+  colorCenter: "#ffffff",
+  colorEdge: "#c8a8ff",
+  bgTop: "#8a55fc",
+  bgBottom: "#a067f5",
+};
+
+export interface TrailfadePreset {
+  id: string;
+  label: string;
+  params: TrailfadeParams;
+}
+
+export const PRESETS: TrailfadePreset[] = [
+  {
+    id: "default",
+    label: "Default",
+    params: { ...DEFAULT_CONFIG },
+  },
+  {
+    id: "fire-spin",
+    label: "Fire Spin",
+    params: {
+      ...DEFAULT_CONFIG,
+      branches: 5,
+      trailFade: 4,
+      speed: 6,
+      radius: 200,
+      curve: 120,
+      brushSize: 18,
+      glowBlur: 25,
+      colorCenter: "#ffffff",
+      colorEdge: "#ff6622",
+      fusedDepth: 0.5,
+      bgTop: "#1a0500",
+      bgBottom: "#3d1200",
+    },
+  },
+  {
+    id: "neon-pulse",
+    label: "Neon Pulse",
+    params: {
+      ...DEFAULT_CONFIG,
+      branches: 2,
+      trailFade: 3,
+      speed: 8,
+      radius: 180,
+      curve: -100,
+      brushSize: 30,
+      glowBlur: 30,
+      colorCenter: "#00ffcc",
+      colorEdge: "#0066ff",
+      fusedDepth: 0.5,
+      bgTop: "#000a14",
+      bgBottom: "#001428",
+    },
+  },
+  {
+    id: "galaxy",
+    label: "Galaxy",
+    params: {
+      ...DEFAULT_CONFIG,
+      branches: 6,
+      trailFade: 2,
+      speed: 2,
+      radius: 250,
+      curve: 150,
+      brushSize: 12,
+      glowBlur: 20,
+      colorCenter: "#ffffee",
+      colorEdge: "#8866ff",
+      fusedDepth: 0.5,
+      bgTop: "#0a0020",
+      bgBottom: "#150040",
+    },
+  },
+  {
+    id: "sakura",
+    label: "Sakura",
+    params: {
+      ...DEFAULT_CONFIG,
+      branches: 4,
+      trailFade: 5,
+      speed: 3,
+      radius: 140,
+      curve: 60,
+      brushSize: 20,
+      glowBlur: 12,
+      colorCenter: "#ffffff",
+      colorEdge: "#ff88aa",
+      fusedDepth: 0.5,
+      bgTop: "#2a0a1a",
+      bgBottom: "#1a0510",
+    },
+  },
+  {
+    id: "ice-crystal",
+    label: "Ice Crystal",
+    params: {
+      ...DEFAULT_CONFIG,
+      branches: 8,
+      trailFade: 8,
+      speed: 1.5,
+      radius: 200,
+      curve: 40,
+      brushSize: 10,
+      glowBlur: 8,
+      colorCenter: "#ffffff",
+      colorEdge: "#88ccff",
+      fusedDepth: 0.5,
+      bgTop: "#050a1a",
+      bgBottom: "#0a1530",
+    },
+  },
+];

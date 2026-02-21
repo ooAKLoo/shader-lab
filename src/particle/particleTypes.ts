@@ -1,4 +1,4 @@
-export type ParticleType = "fission" | "metaball" | "sdfmorph" | "lettermorph" | "liquidfill" | "gooeyfx" | "eyetrack" | "liquidtrans" | "dotgrid" | "dotgrid2" | "columnfield" | "radialflow" | "energyflow" | "sankeyflow" | "starfield";
+export type ParticleType = "fission" | "metaball" | "sdfmorph" | "lettermorph" | "liquidfill" | "gooeyfx" | "eyetrack" | "liquidtrans" | "dotgrid" | "dotgrid2" | "columnfield" | "radialflow" | "energyflow" | "sankeyflow" | "starfield" | "glassturbine" | "cosmicvortex" | "trailfade";
 
 export interface ParticleEntry {
   id: ParticleType;
@@ -81,5 +81,20 @@ export const PARTICLES: ParticleEntry[] = [
     id: "starfield",
     name: "Starfield",
     description: "Three.js point cloud starfield with GLSL z-wrap and UnrealBloom post-processing",
+  },
+  {
+    id: "glassturbine",
+    name: "Glass Turbine",
+    description: "Canvas 2D arc trail fade with additive glass compositing",
+  },
+  {
+    id: "cosmicvortex",
+    name: "Cosmic Vortex",
+    description: "Canvas 2D Keplerian spiral orbits with additive accretion disk glow",
+  },
+  {
+    id: "trailfade",
+    name: "Trail Fade",
+    description: "Canvas 2D Bezier brush trail with destination-out fade and gradient glow",
   },
 ];

@@ -14,7 +14,8 @@ export type ShaderType =
   | "hypergrid"
   | "jellyfish"
   | "trainjourney"
-  | "horizon";
+  | "horizon"
+  | "sdfray";
 
 export type Category = "shaders" | "playground" | "demos" | "particle";
 
@@ -121,5 +122,11 @@ export const SHADERS: ShaderEntry[] = [
     name: "Horizon",
     description: "Parallax mountain scape",
     technique: "FBM + Depth Parallax",
+  },
+  {
+    id: "sdfray",
+    name: "SDF Raymorph",
+    description: "SDF morphing solid",
+    technique: "SDF + Phong Lighting",
   },
 ];
