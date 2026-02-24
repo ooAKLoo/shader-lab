@@ -84,6 +84,10 @@ import { PathmorphCanvas } from "./playground/pathmorph/PathmorphCanvas";
 import { PathmorphControls } from "./playground/pathmorph/PathmorphControls";
 import type { PathmorphParams } from "./playground/pathmorph/types";
 import { DEFAULT_CONFIG as DEFAULT_PATHMORPH } from "./playground/pathmorph/constants";
+import { FibonacciCanvas } from "./playground/fibonacci/FibonacciCanvas";
+import { FibonacciControls } from "./playground/fibonacci/FibonacciControls";
+import type { FibonacciParams } from "./playground/fibonacci/types";
+import { DEFAULT_CONFIG as DEFAULT_FIBONACCI } from "./playground/fibonacci/constants";
 import { FissionCanvas } from "./particle/fission/FissionCanvas";
 import { FissionControls } from "./particle/fission/FissionControls";
 import type { FissionParams } from "./particle/fission/types";
@@ -160,6 +164,17 @@ import type { ParticleType } from "./particle/particleTypes";
 import { PARTICLES } from "./particle/particleTypes";
 import { ParticleStrip } from "./components/ParticleStrip";
 import type { PlaygroundType } from "./data/playgroundTypes";
+import { SuperformulaCanvas } from "./generative/superformula/SuperformulaCanvas";
+import { SuperformulaControls } from "./generative/superformula/SuperformulaControls";
+import type { SuperformulaParams } from "./generative/superformula/types";
+import { DEFAULT_CONFIG as DEFAULT_SUPERFORMULA } from "./generative/superformula/constants";
+import { SineorbitCanvas } from "./generative/sineorbit/SineorbitCanvas";
+import { SineorbitControls } from "./generative/sineorbit/SineorbitControls";
+import type { SineorbitParams } from "./generative/sineorbit/types";
+import { DEFAULT_CONFIG as DEFAULT_SINEORBIT } from "./generative/sineorbit/constants";
+import type { GenerativeType } from "./generative/generativeTypes";
+import { generativeGuides } from "./generative/generativeGuides";
+import { GenerativeStrip } from "./components/GenerativeStrip";
 
 const DEFAULT_VORTEX: VortexParams = {
   color1: "#8b5cf6",
@@ -399,6 +414,7 @@ const App: React.FC = () => {
   const [squaresParams, setSquaresParams] = useState<SquaresParams>(DEFAULT_SQUARES);
   const [textparticleParams, setTextparticleParams] = useState<TextParticleParams>(DEFAULT_TEXTPARTICLE);
   const [pathmorphParams, setPathmorphParams] = useState<PathmorphParams>(DEFAULT_PATHMORPH);
+  const [fibonacciParams, setFibonacciParams] = useState<FibonacciParams>(DEFAULT_FIBONACCI);
   const [activeParticle, setActiveParticle] = useState<ParticleType>("fission");
   const [fissionParams, setFissionParams] = useState<FissionParams>(DEFAULT_FISSION);
   const [metaballParams, setMetaballParams] = useState<MetaballParams>(DEFAULT_METABALL);
@@ -451,6 +467,9 @@ const App: React.FC = () => {
   });
   const columnfieldAnalyserNodeRef = useRef<AnalyserNode | null>(null);
   const [columnfieldPlaying, setColumnfieldPlaying] = useState(false);
+  const [activeGenerative, setActiveGenerative] = useState<GenerativeType>("superformula");
+  const [superformulaParams, setSuperformulaParams] = useState<SuperformulaParams>(DEFAULT_SUPERFORMULA);
+  const [sineorbitParams, setSineorbitParams] = useState<SineorbitParams>(DEFAULT_SINEORBIT);
   const [showTechModal, setShowTechModal] = useState(false);
 
   const meta = SHADER_META[activeShader];
@@ -709,7 +728,8 @@ const App: React.FC = () => {
                   : activePlayground === "framers" ? "Framers"
                   : activePlayground === "squares" ? "Squares"
                   : activePlayground === "textparticle" ? "Text Particle"
-                  : "Path Morph"}
+                  : activePlayground === "pathmorph" ? "Path Morph"
+                  : "Fibonacci"}
               </span>
               <span className="text-[9px] px-1.5 py-0.5 rounded bg-neutral-100 text-neutral-400">
                 {activePlayground === "echotrace" ? "Psychedelic Motion Trail"
@@ -719,7 +739,8 @@ const App: React.FC = () => {
                   : activePlayground === "framers" ? "Splitting.js + CSS Stagger Animation"
                   : activePlayground === "squares" ? "Normal Distribution + Gradient Color Mapping"
                   : activePlayground === "textparticle" ? "Canvas Pixel Sampling + Particle Interpolation"
-                  : "opentype.js + flubber SVG Path Interpolation"}
+                  : activePlayground === "pathmorph" ? "opentype.js + flubber SVG Path Interpolation"
+                  : "Phyllotaxis Algorithm + Canvas 2D + Multi-Color Modes"}
               </span>
               <div className="flex-1" />
 
@@ -751,6 +772,8 @@ const App: React.FC = () => {
                       ? "bg-neutral-950"
                       : activePlayground === "textmask" || activePlayground === "framers" || activePlayground === "textparticle" || activePlayground === "pathmorph"
                       ? ""
+                      : activePlayground === "fibonacci"
+                      ? ""
                       : "bg-white"
                   }`}
                   style={
@@ -758,6 +781,7 @@ const App: React.FC = () => {
                     : activePlayground === "framers" ? { backgroundColor: framersParams.bgColor }
                     : activePlayground === "textparticle" ? { backgroundColor: textparticleParams.bgColor }
                     : activePlayground === "pathmorph" ? { backgroundColor: pathmorphParams.bgColor }
+                    : activePlayground === "fibonacci" ? { backgroundColor: fibonacciParams.bgColor }
                     : undefined
                   }
                 >
@@ -769,6 +793,7 @@ const App: React.FC = () => {
                   {activePlayground === "squares" && <SquaresCanvas params={squaresParams} />}
                   {activePlayground === "textparticle" && <TextparticleCanvas params={textparticleParams} />}
                   {activePlayground === "pathmorph" && <PathmorphCanvas params={pathmorphParams} />}
+                  {activePlayground === "fibonacci" && <FibonacciCanvas params={fibonacciParams} />}
                 </div>
               </div>
 
@@ -800,6 +825,9 @@ const App: React.FC = () => {
                     {activePlayground === "pathmorph" && (
                       <PathmorphControls params={pathmorphParams} onChange={setPathmorphParams} />
                     )}
+                    {activePlayground === "fibonacci" && (
+                      <FibonacciControls params={fibonacciParams} onChange={setFibonacciParams} />
+                    )}
                   </div>
                 </div>
               </div>
@@ -807,6 +835,74 @@ const App: React.FC = () => {
 
             {/* Playground Strip */}
             <PlaygroundStrip active={activePlayground} onSelect={setActivePlayground} />
+          </>
+        ) : activeCategory === "generative" ? (
+          /* Generative Art */
+          <>
+            {/* Header */}
+            <div className="flex items-center gap-3 px-5 py-3 flex-shrink-0">
+              <span className="text-[13px] font-medium text-neutral-700">
+                {activeGenerative === "superformula" ? "Superformula" : "Sine Orbit"}
+              </span>
+              <span className="text-[9px] px-1.5 py-0.5 rounded bg-neutral-100 text-neutral-400">
+                {activeGenerative === "superformula"
+                  ? "Gielis Superformula + Concentric Ring Layout"
+                  : "Multi-Layer Sine Orbit + Additive Blending"}
+              </span>
+              <div className="flex-1" />
+
+              {/* Tech Guide button */}
+              <button
+                onClick={() => setShowTechModal(true)}
+                className="w-6 h-6 rounded-lg bg-neutral-100 hover:bg-neutral-200 flex items-center justify-center text-neutral-400 hover:text-neutral-600 transition-colors"
+              >
+                <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
+                  <circle cx="6" cy="6" r="5" stroke="currentColor" strokeWidth="1.2" />
+                  <path
+                    d="M4.5 4.5C4.5 3.67 5.17 3 6 3C6.83 3 7.5 3.67 7.5 4.5C7.5 5.17 7 5.5 6.5 5.75C6.25 5.88 6 6.08 6 6.4V6.75"
+                    stroke="currentColor"
+                    strokeWidth="1.1"
+                    strokeLinecap="round"
+                  />
+                  <circle cx="6" cy="8.25" r="0.5" fill="currentColor" />
+                </svg>
+              </button>
+            </div>
+
+            {/* Content: Preview + Controls */}
+            <div className="flex-1 flex min-h-0 px-5 gap-4">
+              {/* Left: Canvas (60%) */}
+              <div className="flex-[3] flex flex-col min-h-0">
+                <div
+                  className="rounded-2xl flex-1 overflow-hidden"
+                  style={{
+                    backgroundColor: activeGenerative === "superformula"
+                      ? superformulaParams.bgColor
+                      : sineorbitParams.bgColor,
+                  }}
+                >
+                  {activeGenerative === "superformula" && <SuperformulaCanvas params={superformulaParams} />}
+                  {activeGenerative === "sineorbit" && <SineorbitCanvas params={sineorbitParams} />}
+                </div>
+              </div>
+
+              {/* Right: Control Panel (40%) */}
+              <div className="flex-[2] flex flex-col min-h-0">
+                <div className="h-full bg-neutral-100 rounded-2xl flex flex-col overflow-hidden">
+                  <div className="p-3 overflow-y-auto flex-1 min-h-0">
+                    {activeGenerative === "superformula" && (
+                      <SuperformulaControls params={superformulaParams} onChange={setSuperformulaParams} />
+                    )}
+                    {activeGenerative === "sineorbit" && (
+                      <SineorbitControls params={sineorbitParams} onChange={setSineorbitParams} />
+                    )}
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Generative Strip */}
+            <GenerativeStrip active={activeGenerative} onSelect={setActiveGenerative} />
           </>
         ) : (
           /* Particle */
@@ -999,6 +1095,8 @@ const App: React.FC = () => {
               ? (demoGuides[activeDemo] as any)
               : activeCategory === "particle"
               ? (particleGuides[activeParticle] as any)
+              : activeCategory === "generative"
+              ? (generativeGuides[activeGenerative] as any)
               : (playgroundGuides[activePlayground] as any)
           }
           onClose={() => setShowTechModal(false)}

@@ -1,4 +1,4 @@
-export type PlaygroundType = "echotrace" | "spotlight" | "textmask" | "flip" | "framers" | "squares" | "textparticle" | "pathmorph";
+export type PlaygroundType = "echotrace" | "spotlight" | "textmask" | "flip" | "framers" | "squares" | "textparticle" | "pathmorph" | "fibonacci";
 
 export interface PlaygroundEntry {
   id: PlaygroundType;
@@ -46,5 +46,10 @@ export const PLAYGROUNDS: PlaygroundEntry[] = [
     id: "pathmorph",
     name: "Path Morph",
     description: "SVG path text morphing",
+  },
+  {
+    id: "fibonacci",
+    name: "Fibonacci",
+    description: "Phyllotaxis spiral pattern",
   },
 ];

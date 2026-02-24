@@ -17,7 +17,7 @@ export type ShaderType =
   | "horizon"
   | "sdfray";
 
-export type Category = "shaders" | "playground" | "demos" | "particle";
+export type Category = "shaders" | "playground" | "demos" | "particle" | "generative";
 
 export interface ShaderEntry {
   id: ShaderType;

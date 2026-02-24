@@ -1171,4 +1171,137 @@ const h = normalRandom(50, 20);
     keyInsight:
       "**生成艺术的本质是「约束下的自由」**。正态分布提供了结构（中心聚集），随机扰动提供了变化（每次不同），多段渐变提供了氛围（色彩情绪）。三者叠加：有序 + 无序 = 有机。核心术语链：**Normal Distribution**（控制空间密度）→ **Box-Muller Transform**（生成正态随机数）→ **Multi-Stop Gradient**（颜色映射）→ **Alpha Compositing**（密度→饱和度的自然转化）。记住：**最好的生成艺术来自简单规则的叠加，而非复杂规则的堆砌**。",
   },
+
+  fibonacci: {
+    id: "fibonacci",
+    title: "Fibonacci",
+    subtitle: "叶序螺旋图案生成器",
+    oneLiner:
+      "基于 Phyllotaxis（叶序）算法的斐波那契螺旋图案生成器——用黄金角 137.5° 和极坐标公式 r=c√n 创造自然界的螺旋排列",
+    whatYouSee:
+      "数百个圆点从中心向外螺旋排列，形成向日葵花盘般的图案。仔细观察能看到多条螺旋臂——顺时针和逆时针各有一组，臂的数量恰好是斐波那契数（如 13、21、34）。切换到「旋臂交替」色彩模式后，这些螺旋臂会被不同颜色高亮，结构一目了然。这种排列叫 **Phyllotaxis（叶序）**，是植物在自然界中最常见的生长排列方式。",
+    pipeline: [
+      {
+        step: "01",
+        title: "极坐标叶序公式 (Phyllotaxis Formula)",
+        description:
+          "每个节点的位置由两个公式决定：角度 θ = n × 137.5°，半径 r = c × √n。其中 n 是节点序号，c 是扩散系数。137.5° 是黄金角（360° × (1 - 1/φ)），它让相邻节点永远不会重叠，形成最优的空间填充。",
+        glsl: `// 核心叶序公式
+const angle = i * angleStep * (Math.PI / 180);
+const radius = spread * Math.sqrt(i);
+// 极坐标 → 直角坐标
+const x = centerX + radius * Math.cos(angle);
+const y = centerY + radius * Math.sin(angle);`,
+      },
+      {
+        step: "02",
+        title: "黄金角与斐波那契螺旋 (Golden Angle)",
+        description:
+          "137.5° 是黄金角，等于 360° / φ²（φ 为黄金比例 1.618...）。它是所有角度中最「无理」的——无法被任何整数比近似。这使得每个新节点总是插入到前面节点的最大空隙中，自动生成斐波那契螺旋。将角度偏移 0.01° 就会破坏这个结构。",
+        glsl: `// 黄金角 ≈ 137.5077...°
+// 调整发散角可观察结构变化
+// 137.5° → 完美斐波那契螺旋
+// 137.0° → 出现明显的放射线
+// 120.0° → 变成 3 条直线辐射`,
+      },
+      {
+        step: "03",
+        title: "尺寸递增 (Size Growth)",
+        description:
+          "外圈节点比内圈更大：dotSize = baseSize + radius × growthRate。这模拟了自然界中花瓣从中心到边缘逐渐变大的规律，也增强了视觉的空间深度感。",
+        glsl: `// 尺寸随半径线性增长
+const dotSize = baseSize + radius * sizeGrowth;
+ctx.arc(x, y, Math.max(0.1, dotSize), 0, 2 * Math.PI);`,
+      },
+      {
+        step: "04",
+        title: "多模式色彩映射 (Color Mapping)",
+        description:
+          "提供 5 种色彩模式：单色、动态彩虹（HSL 随索引变化）、径向渐变（按距离映射色板）、角度渐变（按旋转角映射）、旋臂交替（i % palette.length 凸显螺旋结构）。旋臂交替模式最具教育意义——它让隐藏的斐波那契旋臂结构可见。",
+        glsl: `// 旋臂交替：取余循环色板
+fillColor = palette[i % palette.length];
+// 径向渐变：按索引比例映射
+const t = i / numDots;
+fillColor = getGradientColor(palette, t);
+// 动态彩虹：HSL 色环
+fillColor = \`hsl(\${(i/N)*360}, 80%, 60%)\`;`,
+      },
+      {
+        step: "05",
+        title: "HiDPI Canvas 适配 (Device Pixel Ratio)",
+        description:
+          "通过 devicePixelRatio 将 Canvas 物理分辨率提升为 CSS 尺寸的 2-3 倍，再用 ctx.scale(dpr, dpr) 统一坐标系。这保证了在 Retina 屏上每个圆点都清晰锐利，不会模糊。",
+        glsl: `const dpr = window.devicePixelRatio || 1;
+canvas.width = rect.width * dpr;
+canvas.height = rect.height * dpr;
+ctx.scale(dpr, dpr);`,
+      },
+    ],
+    concepts: [
+      {
+        name: "叶序排列",
+        nameEN: "Phyllotaxis",
+        analogy:
+          "向日葵花盘上种子的排列方式——每颗新种子总是转一个黄金角再向外推一点，最终形成完美的螺旋",
+        explanation:
+          "Phyllotaxis（来自希腊语 phyllo=叶 + taxis=排列）是植物学中描述叶片、花瓣、种子围绕茎轴排列方式的术语。数学上用极坐标公式 r=c√n, θ=n×137.5° 描述。这个模型在计算机图形学中被广泛用于生成自然排列的点阵。",
+        whyItMatters:
+          "知道 Phyllotaxis 后，你就能对 AI 说「用 phyllotaxis 算法生成 500 个节点的螺旋排列，黄金角 137.5°，扩散系数 12」——精确描述向日葵式的螺旋布局。",
+      },
+      {
+        name: "黄金角",
+        nameEN: "Golden Angle",
+        analogy:
+          "切蛋糕时，如果每次切的角度是 137.5°，切很多次后每一刀都恰好落在前面最大的空隙中——这是唯一能做到的角度",
+        explanation:
+          "黄金角 = 360° × (2 - φ) ≈ 137.5077°，其中 φ = (1+√5)/2 是黄金比例。它是最不可被有理数逼近的角度——这意味着无论放多少个节点，都不会形成对齐的径向直线。偏移哪怕 0.1° 都会导致明显的「辐条」结构出现。",
+        whyItMatters:
+          "知道 Golden Angle 后，你就能对 AI 说「发散角用黄金角 137.5° 避免节点对齐」——这是自然界最优空间填充的秘密。",
+      },
+      {
+        name: "极坐标系",
+        nameEN: "Polar Coordinates",
+        analogy:
+          "不用「往右走几步、往上走几步」（直角坐标），而用「面朝哪个方向、走多远」来描述位置",
+        explanation:
+          "极坐标用 (r, θ) 描述平面上的点：r 是到原点的距离，θ 是与正 x 轴的夹角。转换为直角坐标：x = r·cos(θ), y = r·sin(θ)。螺旋、花朵、漩涡等径向对称图形用极坐标描述最自然。",
+        whyItMatters:
+          "知道 Polar Coordinates 后，你就能对 AI 说「用极坐标生成螺旋，r = c×√n，θ 按黄金角递增」——用两个参数描述复杂的螺旋结构。",
+      },
+      {
+        name: "色板渐变插值",
+        nameEN: "Palette Gradient Interpolation",
+        analogy:
+          "在一排颜料管之间用刮刀均匀过渡——每两个颜料管之间的颜色都是线性混合出来的",
+        explanation:
+          "定义若干颜色锚点组成色板（如 fire: 黄→橙→红→紫），对任意 t∈[0,1] 找到左右两个锚点并做 RGB 线性插值。段数 = 锚点数 - 1，每段等宽。这是数据可视化和生成艺术中最基础的颜色映射技术。",
+        whyItMatters:
+          "知道 palette interpolation 后，你就能对 AI 说「用 fire 色板做 4 段线性插值，t 按径向距离映射」——精确控制渐变的色彩空间。",
+      },
+    ],
+    applications: [
+      {
+        field: "数据可视化",
+        examples:
+          "散点图的黄金角排列、热力图的径向色彩映射、节点图的自然布局算法",
+      },
+      {
+        field: "生成艺术",
+        examples:
+          "向日葵/花朵图案生成、参数化几何壁纸、粒子系统的初始分布",
+      },
+      {
+        field: "UI 设计",
+        examples:
+          "圆形菜单的扇形分布、头像群组的螺旋排列、加载动画的节点编排",
+      },
+      {
+        field: "教育演示",
+        examples:
+          "斐波那契数列可视化、黄金比例教学、植物形态学模拟",
+      },
+    ],
+    keyInsight:
+      "**叶序排列揭示了自然界的数学美学：一个无理数角度 + 一个平方根半径，就能生成最优的空间填充**。黄金角 137.5° 的「无理性」是关键——它让每个新节点永远无法与前面的节点对齐，从而不断填入最大空隙。核心术语链：**Phyllotaxis**（叶序公式）→ **Golden Angle**（137.5° 黄金角）→ **Polar Coordinates**（极坐标布局）→ **Palette Interpolation**（色彩映射）。记住：**自然界不做网格排列，它用无理数创造有序的混沌**。",
+  },
 };
