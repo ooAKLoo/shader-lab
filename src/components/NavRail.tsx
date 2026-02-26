@@ -1,5 +1,5 @@
 import React from "react";
-import { Layers, Palette, Sparkles, Atom, Hexagon, Info } from "lucide-react";
+import { Layers, Palette, Sparkles, Atom, Hexagon, Info, BookOpen } from "lucide-react";
 import type { Category } from "../data/shaderTypes";
 
 interface NavRailProps {
@@ -59,6 +59,29 @@ export const NavRail: React.FC<NavRailProps> = ({ activeCategory, onCategoryChan
 
       {/* Spacer */}
       <div className="flex-1" />
+
+      {/* Guide button */}
+      <button
+        onClick={() => onCategoryChange("guide")}
+        className="flex flex-col items-center gap-1 mb-2"
+      >
+        <div
+          className={`w-10 h-10 rounded-xl flex items-center justify-center transition-colors ${
+            activeCategory === "guide"
+              ? "bg-neutral-800 text-white"
+              : "text-neutral-400 hover:bg-neutral-100"
+          }`}
+        >
+          <BookOpen size={18} />
+        </div>
+        <span
+          className={`text-[8px] uppercase tracking-wide font-medium ${
+            activeCategory === "guide" ? "text-neutral-700" : "text-neutral-400"
+          }`}
+        >
+          Guide
+        </span>
+      </button>
 
       {/* Info section */}
       <div className="flex flex-col items-center gap-1">

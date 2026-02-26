@@ -15,9 +15,10 @@ export type ShaderType =
   | "jellyfish"
   | "trainjourney"
   | "horizon"
-  | "sdfray";
+  | "sdfray"
+  | "dotscape";
 
-export type Category = "shaders" | "playground" | "demos" | "particle" | "generative";
+export type Category = "shaders" | "playground" | "demos" | "particle" | "generative" | "guide";
 
 export interface ShaderEntry {
   id: ShaderType;
@@ -128,5 +129,11 @@ export const SHADERS: ShaderEntry[] = [
     name: "SDF Raymorph",
     description: "SDF morphing solid",
     technique: "SDF + Phong Lighting",
+  },
+  {
+    id: "dotscape",
+    name: "Dot Terrain",
+    description: "Displaced dot grid landscape",
+    technique: "Domain Warp + FBM + Instancing Grid",
   },
 ];

@@ -1,5 +1,6 @@
 import React, { useState, useRef } from "react";
 import { NavRail } from "./components/NavRail";
+import { GlossaryGuide } from "./components/GlossaryGuide";
 import { ShaderStrip } from "./components/ShaderStrip";
 import { TechModal } from "./components/TechModal";
 import { shaderGuides } from "./data/shaderGuides";
@@ -41,6 +42,8 @@ import { HorizonCanvas, type HorizonParams } from "./shaders/horizon/HorizonCanv
 import { HorizonControls } from "./shaders/horizon/HorizonControls";
 import { SdfrayCanvas, type SdfrayParams } from "./shaders/sdfray/SdfrayCanvas";
 import { SdfrayControls } from "./shaders/sdfray/SdfrayControls";
+import { DotscapeCanvas, type DotscapeParams } from "./shaders/dotscape/DotscapeCanvas";
+import { DotscapeControls } from "./shaders/dotscape/DotscapeControls";
 import { GooeyCanvas, type GooeyParams } from "./demos/gooey/GooeyCanvas";
 import { GooeyControls } from "./demos/gooey/GooeyControls";
 import { ParallaxCanvas } from "./demos/parallax/ParallaxCanvas";
@@ -324,6 +327,16 @@ const DEFAULT_SDFRAY: SdfrayParams = {
   cameraZ: 2.5,
 };
 
+const DEFAULT_DOTSCAPE: DotscapeParams = {
+  speed: 0.4,
+  gridDensity: 60,
+  warpStrength: 5.0,
+  dotSize: 1.0,
+  brightness: 1.5,
+  color1: "#0a1628",
+  color2: "#7db8e0",
+};
+
 const DEFAULT_GOOEY: GooeyParams = {
   scrollProgress: 0.0,
   colWidth: 0.7,
@@ -381,6 +394,10 @@ const SHADER_META: Record<ShaderType, ShaderMeta> = {
     name: "SDF Raymorph",
     technique: "SDF Raymarching + Shape Morphing + Phong Lighting",
   },
+  dotscape: {
+    name: "Dot Terrain",
+    technique: "Vertex Displacement + Domain Warping + FBM + Height Mapping",
+  },
 };
 
 const App: React.FC = () => {
@@ -405,6 +422,7 @@ const App: React.FC = () => {
   const [trainjourneyParams, setTrainjourneyParams] = useState<TrainjourneyParams>(DEFAULT_TRAINJOURNEY);
   const [horizonParams, setHorizonParams] = useState<HorizonParams>(DEFAULT_HORIZON);
   const [sdfrayParams, setSdfrayParams] = useState<SdfrayParams>(DEFAULT_SDFRAY);
+  const [dotscapeParams, setDotscapeParams] = useState<DotscapeParams>(DEFAULT_DOTSCAPE);
   const [gooeyParams, setGooeyParams] = useState<GooeyParams>(DEFAULT_GOOEY);
   const [echotraceParams, setEchotraceParams] = useState<EchotraceParams>(DEFAULT_ECHOTRACE);
   const [spotlightParams, setSpotlightParams] = useState<SpotlightParams>(DEFAULT_SPOTLIGHT);
@@ -471,6 +489,15 @@ const App: React.FC = () => {
   const [superformulaParams, setSuperformulaParams] = useState<SuperformulaParams>(DEFAULT_SUPERFORMULA);
   const [sineorbitParams, setSineorbitParams] = useState<SineorbitParams>(DEFAULT_SINEORBIT);
   const [showTechModal, setShowTechModal] = useState(false);
+
+  const handleGlossaryNavigate = (category: Category, id: string) => {
+    setActiveCategory(category);
+    if (category === "shaders") setActiveShader(id as ShaderType);
+    else if (category === "demos") setActiveDemo(id as DemoType);
+    else if (category === "playground") setActivePlayground(id as PlaygroundType);
+    else if (category === "particle") setActiveParticle(id as ParticleType);
+    else if (category === "generative") setActiveGenerative(id as GenerativeType);
+  };
 
   const meta = SHADER_META[activeShader];
 
@@ -543,6 +570,7 @@ const App: React.FC = () => {
                   {activeShader === "trainjourney" && <TrainjourneyCanvas params={trainjourneyParams} />}
                   {activeShader === "horizon" && <HorizonCanvas params={horizonParams} />}
                   {activeShader === "sdfray" && <SdfrayCanvas params={sdfrayParams} />}
+                  {activeShader === "dotscape" && <DotscapeCanvas params={dotscapeParams} />}
                 </div>
               </div>
 
@@ -600,6 +628,9 @@ const App: React.FC = () => {
                     )}
                     {activeShader === "sdfray" && (
                       <SdfrayControls params={sdfrayParams} onChange={setSdfrayParams} />
+                    )}
+                    {activeShader === "dotscape" && (
+                      <DotscapeControls params={dotscapeParams} onChange={setDotscapeParams} />
                     )}
                   </div>
                 </div>
@@ -904,6 +935,8 @@ const App: React.FC = () => {
             {/* Generative Strip */}
             <GenerativeStrip active={activeGenerative} onSelect={setActiveGenerative} />
           </>
+        ) : activeCategory === "guide" ? (
+          <GlossaryGuide onNavigate={handleGlossaryNavigate} />
         ) : (
           /* Particle */
           <>
